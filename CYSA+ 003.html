@@ -1,0 +1,2734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CySA+ 003: HACKER OPS</title>
+    <style>
+        :root {
+            --neon-green: #0f0;
+            --neon-red: #f00;
+            --neon-blue: #0ff;
+            --neon-purple: #b026ff;
+            --neon-orange: #ff9933;
+            --dark-bg: #050505;
+            --panel-bg: rgba(0, 20, 0, 0.95);
+            --text-color: #0f0;
+        }
+
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--dark-bg);
+            color: var(--text-color);
+            font-family: 'Share Tech Mono', monospace;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Scanline & CRT Effects */
+        body::before {
+            content: " ";
+            display: block;
+            position: fixed;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 999;
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }
+        
+        /* Matrix Background */
+        canvas#matrix {
+            position: fixed;
+            top: 0; left: 0; z-index: -1;
+            opacity: 0.4;
+        }
+
+        /* RED ALERT MODE */
+        .red-alert-mode {
+            background-color: #330000 !important;
+            animation: redFlicker 0.2s infinite alternate;
+        }
+        @keyframes redFlicker {
+            0% { box-shadow: 0 0 10px rgba(255, 0, 0, 0.5); }
+            100% { box-shadow: 0 0 20px rgba(255, 0, 0, 0.8); }
+        }
+
+        #red-alert-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(100, 0, 0, 0.85); z-index: 3000; 
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            backdrop-filter: blur(8px);
+            text-align: center;
+            color: var(--neon-red);
+            text-shadow: 0 0 10px var(--neon-red);
+            font-size: 1.5rem;
+        }
+        
+        .siren-light {
+            background: repeating-linear-gradient(
+                45deg,
+                var(--neon-red),
+                var(--neon-red) 10px,
+                rgba(0, 0, 0, 0.2) 10px,
+                rgba(0, 0, 0, 0.2) 20px
+            );
+            width: 100%; height: 100%;
+            opacity: 0.1;
+            position: absolute;
+            animation: sirenFlash 0.5s infinite alternate;
+            z-index: -1;
+        }
+        @keyframes sirenFlash {
+            0% { opacity: 0.1; filter: brightness(1); }
+            100% { opacity: 0.3; filter: brightness(1.5); }
+        }
+
+        /* Cutscene Overlay */
+        #cutscene-layer {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 2000;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            font-family: 'Courier New', monospace;
+            padding: 20px;
+        }
+        
+        .cutscene-log {
+            width: 700px; max-width: 90%;
+            text-align: left;
+            font-size: 1.2rem;
+            color: var(--neon-green);
+            text-shadow: 0 0 5px var(--neon-green);
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+
+        .progress-bar {
+            width: 300px; height: 4px; background: #333; margin-top: 20px;
+            position: relative; overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%; background: var(--neon-green); width: 0%;
+            box-shadow: 0 0 10px var(--neon-green);
+            transition: width 0.1s;
+        }
+
+        /* Briefing & Report Boxes */
+        .modal-box {
+            border: 2px solid var(--neon-blue);
+            padding: 30px;
+            background: rgba(0, 10, 20, 0.95);
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.2);
+            text-align: left;
+            max-width: 700px;
+            width: 90%;
+            display: none;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .briefing-mode { border-color: var(--neon-red); }
+        .briefing-mode h2 { color: var(--neon-red); border-bottom: 1px solid var(--neon-red); }
+        
+        .report-mode { border-color: var(--neon-green); }
+        .report-mode h2 { color: var(--neon-green); border-bottom: 1px solid var(--neon-green); }
+
+        .scrolling-logs {
+            height: 100px; overflow: hidden; 
+            font-size: 0.8rem; color: #555; font-family: monospace;
+            border-top: 1px solid #333; border-bottom: 1px solid #333;
+            margin: 15px 0; padding: 5px; opacity: 0.7;
+        }
+
+        /* Rank Up Animation */
+        @keyframes rankUp {
+            0% { transform: scale(0.5); opacity: 0; }
+            50% { transform: scale(1.2); opacity: 1; text-shadow: 0 0 20px white; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .rank-display {
+            font-size: 2rem; font-weight: bold; color: var(--neon-orange);
+            text-align: center; margin: 20px 0;
+            animation: rankUp 1s ease-out;
+        }
+
+        /* Dashboard Stats */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            padding: 10px 0;
+        }
+        .stat-box {
+            background: rgba(0, 50, 0, 0.2);
+            border: 1px solid #333;
+            padding: 10px;
+        }
+        .stat-label {
+            font-size: 0.7rem; color: #aaa; text-transform: uppercase;
+        }
+        .stat-value {
+            font-size: 1.3rem; font-weight: bold; color: white;
+            text-shadow: 0 0 5px var(--neon-green);
+        }
+        .resource-link {
+            display: block; padding: 12px; margin: 10px 0;
+            background: rgba(0, 50, 50, 0.2);
+            border: 1px solid var(--neon-blue);
+            color: var(--neon-blue);
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .resource-link:hover {
+            background: var(--neon-blue);
+            color: black;
+            box-shadow: 0 0 10px var(--neon-blue);
+        }
+
+        /* UI Containers */
+        #app {
+            max-width: 1400px; margin: 0 auto; padding: 20px;
+            position: relative; z-index: 1; opacity: 1;
+            transition: opacity 0.3s;
+        }
+
+        /* Layout Grid */
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 20px;
+        }
+        
+        @media (max-width: 900px) {
+            .main-layout { grid-template-columns: 1fr; }
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--neon-green);
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.1);
+            padding: 20px; border-radius: 2px;
+            margin-bottom: 20px; backdrop-filter: blur(5px);
+            position: relative;
+        }
+        
+        /* Decorative corner markers */
+        .panel::after {
+            content: ''; position: absolute; bottom: -1px; right: -1px;
+            width: 10px; height: 10px; border-bottom: 2px solid var(--neon-green); border-right: 2px solid var(--neon-green);
+        }
+
+        /* SOC Chat Panel */
+        .chat-container {
+            height: 500px;
+            display: flex; flex-direction: column;
+        }
+        .chat-header {
+            border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px;
+            font-weight: bold; color: var(--neon-blue); letter-spacing: 1px;
+        }
+        .chat-window {
+            flex-grow: 1; overflow-y: auto; font-size: 0.9rem;
+            display: flex; flex-direction: column; gap: 8px;
+            scrollbar-width: thin; scrollbar-color: var(--neon-green) #000;
+        }
+        .chat-msg { animation: fadeIn 0.3s ease; line-height: 1.3; }
+        .chat-sender { font-weight: bold; margin-right: 5px; }
+        .chat-time { color: #555; font-size: 0.7rem; margin-right: 5px; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Typography */
+        h1, h2, h3 {
+            text-transform: uppercase;
+            text-shadow: 0 0 8px var(--neon-green);
+            margin: 0 0 15px 0; letter-spacing: 2px;
+        }
+
+        /* Controls */
+        button {
+            background: rgba(0, 20, 0, 0.8);
+            color: var(--neon-green);
+            border: 1px solid #005500;
+            padding: 12px 24px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 1.1rem; cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.1s;
+            margin: 5px; min-width: 100px;
+            position: relative; overflow: hidden;
+        }
+
+        button:hover {
+            background: var(--neon-green); color: black;
+            box-shadow: 0 0 20px var(--neon-green);
+            border-color: var(--neon-green);
+        }
+
+        button.btn-danger { border-color: #500; color: #f55; }
+        button.btn-danger:hover {
+            background: var(--neon-red); color: black;
+            box-shadow: 0 0 20px var(--neon-red);
+        }
+        
+        button.selected {
+            background: var(--neon-red); color: black;
+            border-color: var(--neon-red);
+            box-shadow: 0 0 15px var(--neon-red);
+        }
+
+        input, select {
+            background: #000; color: var(--neon-green);
+            border: 1px solid #333; padding: 12px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 1.1rem; width: 100%; margin-bottom: 10px;
+        }
+        input:focus { outline: none; border-color: var(--neon-green); box-shadow: 0 0 10px rgba(0,255,0,0.2); }
+
+        /* Nav & Grid */
+        .nav-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 2px solid var(--neon-green); padding-bottom: 15px;
+            flex-wrap: wrap; gap: 10px;
+        }
+
+        .game-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px;
+        }
+
+        .game-card {
+            background: rgba(0, 20, 0, 0.6); border: 1px solid #004400;
+            padding: 15px; cursor: pointer; transition: 0.2s;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            min-height: 120px; text-align: center;
+        }
+
+        .game-card:hover {
+            border-color: var(--neon-green);
+            background: rgba(0, 50, 0, 0.8);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,255,0,0.2);
+        }
+        
+        .game-card.priority {
+            border: 2px solid var(--neon-red);
+            box-shadow: 0 0 10px var(--neon-red);
+        }
+        .game-card.priority::after {
+            content: '! PRIORITY !';
+            position: absolute; top: 0; right: 0;
+            background: var(--neon-red); color: black;
+            font-size: 0.7rem; padding: 2px 5px; font-weight: bold;
+        }
+
+        /* Tracker Styles */
+        .tracker-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;
+            text-align: left;
+        }
+        .tracker-item {
+            border: 1px solid #333; padding: 10px; cursor: pointer;
+            transition: all 0.2s; display: flex; align-items: center; justify-content: space-between;
+            font-size: 0.9rem; background: rgba(0,0,0,0.5);
+        }
+        .tracker-item:hover { border-color: #666; }
+        .tracker-item.active {
+            border-color: var(--neon-red);
+            background: rgba(50, 0, 0, 0.3);
+            color: var(--neon-red);
+        }
+        .check-box {
+            width: 15px; height: 15px; border: 1px solid #666; display: flex; align-items: center; justify-content: center; font-size: 0.8rem;
+        }
+        .tracker-item.active .check-box { background: var(--neon-red); border-color: var(--neon-red); color: black; }
+
+        /* Flashcards */
+        .flashcard-container { perspective: 1000px; width: 100%; height: 350px; cursor: pointer; margin: 20px 0; }
+        .flashcard-inner { position: relative; width: 100%; height: 100%; text-align: center; transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1); transform-style: preserve-3d; }
+        .flashcard-container.flipped .flashcard-inner { transform: rotateY(180deg); }
+        .flashcard-front, .flashcard-back {
+            position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: #000; border: 2px solid var(--neon-green); padding: 30px;
+            box-shadow: inset 0 0 50px rgba(0, 255, 0, 0.1);
+        }
+        .flashcard-back { transform: rotateY(180deg); border-color: var(--neon-blue); color: var(--neon-blue); text-shadow: 0 0 5px var(--neon-blue); }
+
+        /* Game Specifics */
+        .terminal-display {
+            background: #050505; border: 1px solid #333; padding: 20px; font-family: 'Courier New', monospace;
+            margin-bottom: 20px; color: #ccc; text-align: left; min-height: 150px;
+        }
+        .command-line { color: var(--neon-green); }
+        .cursor { animation: blink 1s infinite; display: inline-block; width: 10px; height: 18px; background: var(--neon-green); vertical-align: middle; }
+        
+        .diamond-board { position: relative; width: 300px; height: 300px; margin: 20px auto; transform: rotate(45deg); border: 2px dashed #003300; }
+        .diamond-node {
+            position: absolute; width: 90px; height: 90px; display: flex; align-items: center; justify-content: center;
+            text-align: center; border: 1px solid var(--neon-green); background: #001100; cursor: pointer;
+            transform: rotate(-45deg); font-size: 0.8rem; transition: 0.3s;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+        .diamond-node:hover { background: #003300; box-shadow: 0 0 20px var(--neon-green); z-index: 10; }
+        .node-top { top: -45px; left: 105px; } .node-right { top: 105px; left: 255px; }
+        .node-bottom { top: 255px; left: 105px; } .node-left { top: 105px; left: -45px; }
+
+        .syslog-tower { display: flex; flex-direction: column; width: 200px; margin: 0 auto; gap: 4px; }
+        .syslog-level { padding: 8px; border: 1px solid #222; text-align: center; cursor: pointer; transition: 0.2s; font-size: 0.9rem; }
+        .syslog-level:hover { filter: brightness(1.5); transform: scale(1.05); }
+        
+        .chain-container { display: flex; flex-direction: column; gap: 8px; max-width: 500px; margin: 0 auto; }
+        .chain-node { 
+            padding: 12px; border: 1px solid var(--neon-orange); background: rgba(50, 20, 0, 0.3); 
+            text-align: center; cursor: pointer; position: relative; transition: 0.2s;
+        }
+        .chain-node:hover { background: var(--neon-orange); color: black; box-shadow: 0 0 15px var(--neon-orange); }
+        .chain-arrow { text-align: center; color: #552200; font-size: 1.2rem; }
+
+        .nist-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; }
+        .nist-block { 
+            width: 140px; height: 90px; border: 2px solid var(--neon-blue); display: flex; 
+            align-items: center; justify-content: center; cursor: pointer; font-weight: bold;
+            transition: 0.2s;
+        }
+        .nist-block:hover { background: var(--neon-blue); color: black; box-shadow: 0 0 20px var(--neon-blue); }
+
+        .ir-ticket { 
+            border: 2px solid var(--neon-purple); background: rgba(20, 0, 20, 0.5); padding: 20px; 
+            margin-bottom: 20px; text-align: left; font-family: monospace; border-left-width: 10px;
+        }
+        .ir-buttons button { border-color: var(--neon-purple); color: var(--neon-purple); }
+        .ir-buttons button:hover { background: var(--neon-purple); color: white; box-shadow: 0 0 15px var(--neon-purple); }
+
+        .study-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; text-align: left; }
+        .study-item { border: 1px solid #222; padding: 15px; background: rgba(0,20,0,0.3); transition: 0.2s; }
+        .study-item:hover { border-color: var(--neon-green); background: rgba(0,30,0,0.5); }
+        .study-term { color: var(--neon-green); font-weight: bold; font-size: 1.2rem; margin-bottom: 8px; }
+        .study-def { color: #aaa; font-size: 0.95rem; line-height: 1.4; }
+
+        @keyframes blink { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+        @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } 100% { transform: translateX(0); } }
+        .shake { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; border-color: var(--neon-red) !important; color: var(--neon-red) !important; }
+
+        /* Utility */
+        .hidden { display: none !important; }
+        .text-small { font-size: 0.8rem; opacity: 0.7; }
+        .text-center { text-align: center; }
+        .flex-center { display: flex; justify-content: center; gap: 10px; }
+        .status-msg { height: 30px; margin-top: 10px; font-weight: bold; text-align: center; letter-spacing: 1px; }
+
+    </style>
+</head>
+<body>
+
+    <canvas id="matrix"></canvas>
+    
+    <!-- Cutscene Overlay -->
+    <div id="cutscene-layer" class="hidden">
+        <div id="cutscene-text" class="cutscene-log"></div>
+        <div id="cutscene-progress" class="progress-bar hidden"><div class="progress-fill"></div></div>
+        
+        <!-- Briefing Modal -->
+        <div id="briefing-modal" class="modal-box briefing-mode">
+            <h2 id="briefing-header">TOP SECRET // MISSION BRIEF</h2>
+            <div id="scrolling-logs" class="scrolling-logs"></div>
+            <div id="briefing-content" class="cutscene-log" style="font-size: 1rem; color: #ccc;"></div>
+            <br>
+            <button id="briefing-ack" onclick="cutscene.ackBriefing()">ACKNOWLEDGE ORDERS</button>
+        </div>
+
+        <!-- Post-Mission Report Modal -->
+        <div id="report-modal" class="modal-box report-mode">
+            <h2>MISSION SUCCESS // REPORT</h2>
+            <div id="rank-display" class="rank-display"></div>
+            <div id="report-dashboard">
+                <!-- Dashboard content inserted here by renderPostMissionReport -->
+            </div>
+            <div style="margin: 20px 0; border-top: 1px dashed #333; border-bottom: 1px dashed #333; padding: 15px;">
+                <p id="report-summary" style="color:white;"></p>
+                <p id="report-threat" style="color:var(--neon-red); font-weight:bold;"></p>
+                <p id="report-unlock" style="color:var(--neon-blue); font-size: 0.9rem;"></p>
+            </div>
+            <button onclick="cutscene.ackReport()">RETURN TO BASE</button>
+        </div>
+    </div>
+    
+    <!-- Red Alert Screen -->
+    <div id="red-alert-screen">
+        <div class="siren-light"></div>
+        <h1 style="color: var(--neon-red); text-shadow: 0 0 15px var(--neon-red); font-size: 4rem; margin-bottom: 20px;">
+            CONTAINMENT FAILURE
+        </h1>
+        <p>INITIATE SECURITY OVERRIDE IMMEDIATELY.</p>
+        <div id="override-challenge" style="margin-top: 30px; width: 90%; max-width: 400px;">
+            <!-- Challenge content dynamically inserted here -->
+        </div>
+    </div>
+
+    <div id="app"></div>
+
+    <script>
+        // --- DATA ---
+        const WEAKNESS_AREAS = [
+            "Threat Management",
+            "Vulnerability Management",
+            "Incident Response",
+            "Security Monitoring",
+            "Reporting & Communication",
+            "Cloud Security",
+            "Data Governance"
+        ];
+
+        const RANKS = ["INITIATE ANALYST", "BLUE SENTINEL", "CYBER GUARDIAN", "SHADOW OPERATIVE", "DEFENDER PRIME", "ELITE HUNTER", "CISO"];
+        const XP_PER_RANK = 100;
+
+        const CATEGORIES = {
+            NMAP: 'Nmap & Switches',
+            RAID: 'RAID Levels',
+            PORTS: 'Well-Known Ports',
+            SYSLOG: 'Syslog Levels',
+            DIAMOND: 'Diamond Model',
+            MITRE: 'MITRE ATT&CK',
+            KILLCHAIN: 'Cyber Kill Chain',
+            NIST: 'NIST Framework',
+            IR: 'Incident Response',
+            CONTROLS: 'Compensating Controls', 
+            FORENSICS: 'Digital Forensics', 
+            SDLC: 'SDLC Phases',
+            THREAT_INTEL: 'Threat Intelligence',
+            SOURCE_INTEL: 'Source Intelligence', 
+            VULN_MGMT: 'Vulnerability Management', 
+            THREAT_CLASS: 'Threat Classification', 
+            CLOUD: 'Cloud Security',
+            DATA_ROLES: 'CISSP Data Roles',
+            LOG_FLAGS: 'Code & Log Red Flags', 
+            WIRESHARK: 'Wireshark & Packet Analysis', // NEW
+            SCENARIO: 'Exam Scenarios', 
+            SOC: 'SOC Simulator'
+        };
+
+        // Map categories to weakness areas for tracking
+        const CATEGORY_MAP = {
+            [CATEGORIES.NMAP]: "Vulnerability Management",
+            [CATEGORIES.RAID]: "Security Monitoring",
+            [CATEGORIES.PORTS]: "Security Monitoring",
+            [CATEGORIES.SYSLOG]: "Security Monitoring",
+            [CATEGORIES.DIAMOND]: "Threat Management",
+            [CATEGORIES.MITRE]: "Threat Management",
+            [CATEGORIES.KILLCHAIN]: "Threat Management",
+            [CATEGORIES.NIST]: "Reporting & Communication",
+            [CATEGORIES.IR]: "Incident Response",
+            [CATEGORIES.CONTROLS]: "Security Monitoring", 
+            [CATEGORIES.FORENSICS]: "Incident Response", 
+            [CATEGORIES.SDLC]: "Vulnerability Management",
+            [CATEGORIES.THREAT_INTEL]: "Threat Management",
+            [CATEGORIES.SOURCE_INTEL]: "Threat Management", 
+            [CATEGORIES.VULN_MGMT]: "Vulnerability Management",
+            [CATEGORIES.THREAT_CLASS]: "Threat Management",
+            [CATEGORIES.CLOUD]: "Cloud Security",
+            [CATEGORIES.DATA_ROLES]: "Data Governance",
+            [CATEGORIES.LOG_FLAGS]: "Threat Management",
+            [CATEGORIES.WIRESHARK]: "Security Monitoring", // NEW
+            [CATEGORIES.SCENARIO]: "Incident Response",
+            [CATEGORIES.SOC]: "Security Monitoring"
+        };
+
+        const GAME_TITLES = {
+            [CATEGORIES.NMAP]: 'COMMAND LINE BUILDER',
+            [CATEGORIES.RAID]: 'ARRAY ARCHITECT',
+            [CATEGORIES.PORTS]: 'PORT BREAKER',
+            [CATEGORIES.SYSLOG]: 'SEVERITY GAUGE',
+            [CATEGORIES.DIAMOND]: 'THREAT MAPPER',
+            [CATEGORIES.MITRE]: 'TACTIC HUNTER',
+            [CATEGORIES.KILLCHAIN]: 'CHAIN LINKER',
+            [CATEGORIES.NIST]: 'FRAMEWORK CYCLER',
+            [CATEGORIES.IR]: 'INCIDENT HANDLER',
+            [CATEGORIES.CONTROLS]: 'CONTROL CLASSIFIER', 
+            [CATEGORIES.FORENSICS]: 'EVIDENCE CHAIN', 
+            [CATEGORIES.SDLC]: 'PHASE SEQUENCER',
+            [CATEGORIES.THREAT_INTEL]: 'INTEL ANALYZER',
+            [CATEGORIES.SOURCE_INTEL]: 'SOURCE VERIFIER',
+            [CATEGORIES.VULN_MGMT]: 'VULN SCANNER',
+            [CATEGORIES.THREAT_CLASS]: 'ACTOR PROFILER',
+            [CATEGORIES.CLOUD]: 'CLOUD GUARDIAN',
+            [CATEGORIES.DATA_ROLES]: 'ROLE AUTHORITY',
+            [CATEGORIES.LOG_FLAGS]: 'PATTERN HUNTER',
+            [CATEGORIES.WIRESHARK]: 'PACKET ANALYZER', // NEW
+            [CATEGORIES.SCENARIO]: 'SCENARIO SIMULATION'
+        };
+
+        const GAME_INSTRUCTIONS = {
+            [CATEGORIES.NMAP]: "MISSION BRIEF: \n\nTarget system requires active reconnaissance.\nAnalyze the scan objective shown in the terminal.\nSelect the Nmap flag that executes the specific function required to bypass perimeter defenses.",
+            [CATEGORIES.RAID]: "MISSION BRIEF: \n\nData integrity is critical.\nReview the storage requirements for the new server cluster.\nSelect the RAID level that matches the description of speed, redundancy, and parity.",
+            [CATEGORIES.PORTS]: "MISSION BRIEF: \n\nFirewall reconfiguration requested.\nA secure connection protocol is required for the uplink.\nEnter the correct Port Number used by that service to open the channel.",
+            [CATEGORIES.SYSLOG]: "MISSION BRIEF: \n\nAlert triggered in SIEM.\nA log message has been intercepted.\nIdentify the correct numeric Syslog Severity Level associated with the condition to triage the event.",
+            [CATEGORIES.DIAMOND]: "MISSION BRIEF: \n\nThreat Intelligence artifact recovered.\nAnalyze the data point.\nClassify it into the correct node of the Diamond Model of Intrusion Analysis to map the adversary.",
+            [CATEGORIES.MITRE]: "MISSION BRIEF: \n\nAPT behavior detected.\nDetermine if the concept describes a Tactic (Goal), Technique (Method), or Procedure (Specific implementation).",
+            [CATEGORIES.KILLCHAIN]: "MISSION BRIEF: \n\nIntrusion attempt in progress.\nAnalyze the attacker's current action.\nSelect the phase of the Lockheed Martin Cyber Kill Chain that this activity belongs to.",
+            [CATEGORIES.NIST]: "MISSION BRIEF: \n\nPolicy compliance check.\nIdentify which function of the NIST Cybersecurity Framework (Identify, Protect, Detect, Respond, Recover) covers this activity.",
+            [CATEGORIES.IR]: "MISSION BRIEF: \n\nActive Incident declared.\nManage the Incident Response lifecycle.\nUpdate the ticket status by selecting the current phase based on the action log.",
+            [CATEGORIES.CONTROLS]: "MISSION BRIEF: \n\nSecurity Audit: Classify the provided security action based on its operational purpose (Compensating, Deterrent, Technical, etc.).", 
+            [CATEGORIES.FORENSICS]: "MISSION BRIEF: \n\nDigital evidence acquired. Place the forensic action into the correct phase of the standard forensic lifecycle (Collection, Examination, etc.).", 
+            [CATEGORIES.SDLC]: "MISSION BRIEF: \n\nApplication vulnerability detected. Identify which phase of the secure software development lifecycle (SDLC) the following activity belongs to.",
+            [CATEGORIES.THREAT_INTEL]: "MISSION BRIEF: \n\nAnalyze incoming intelligence feeds.\nClassify the intelligence data (Actor, Indicator, TTP, or Source) to update the threat landscape model.",
+            [CATEGORIES.SOURCE_INTEL]: "MISSION BRIEF: \n\nVerify intelligence source credibility.\nCategorize the intelligence gathering method (OSINT, HUMINT, SIGINT, etc.) based on the operational description.", 
+            [CATEGORIES.VULN_MGMT]: "MISSION BRIEF: \n\nSystem vulnerability assessment in progress.\nAnalyze the scanning parameters and metrics (CVSS, CVE) to classify the risk factor.",
+            [CATEGORIES.THREAT_CLASS]: "MISSION BRIEF: \n\nHostile actor detected.\nProfile the adversary based on their motivation, capability, and resources.",
+            [CATEGORIES.CLOUD]: "MISSION BRIEF: \n\nCloud infrastructure alert.\nIdentify the correct Cloud Security concept (CASB, CSPM, SWG) required to mitigate the identified risk.", 
+            [CATEGORIES.DATA_ROLES]: "MISSION BRIEF: \n\nData Governance Audit.\nReview the responsibilities described.\nIdentify the correct Data Role (Owner, Custodian, Controller, etc.) accountable for this task.", 
+            [CATEGORIES.LOG_FLAGS]: "MISSION BRIEF: \n\nLog analysis required.\nAnalyze the provided code snippet, log entry, or system artifact.\nIdentify the vulnerability, attack vector, or security risk associated with the pattern.",
+            [CATEGORIES.WIRESHARK]: "MISSION BRIEF: \n\nNetwork traffic interception complete.\nAnalyze the analysis objective.\nSelect the correct Wireshark Display Filter or concept required to isolate the specific traffic.", // NEW
+            [CATEGORIES.SCENARIO]: "MISSION BRIEF: \n\nREAL-WORLD SCENARIO.\nAnalyze the situation, logs, or technical indicators provided.\nSelect the BEST course of action or identification.", 
+            [CATEGORIES.SOC]: "MISSION BRIEF: \n\nLIVE OPS: Complete your shift by accumulating 500 Merit Points.\n\nTRIAGE GOALS:\n- IGNORE (False Positive, FP) [+10]\n- INVESTIGATE (Low Severity Incident, LSI) [+20]\n- ESCALATE (High Severity Incident, HSI) [+30]\n\nKeep errors below 3 to avoid termination."
+        };
+
+        const STUDY_DATA = [
+            // --- NEW: WIRESHARK & PACKET ANALYSIS ---
+            { category: CATEGORIES.WIRESHARK, term: 'ip.addr == 10.0.0.1', definition: 'Display filter to show all packets where either the source or destination IP is 10.0.0.1.', type: 'quiz' },
+            { category: CATEGORIES.WIRESHARK, term: 'ip.src == 10.0.0.1', definition: 'Display filter to show only packets originating FROM the IP 10.0.0.1.', type: 'quiz' },
+            { category: CATEGORIES.WIRESHARK, term: 'ip.dst == 10.0.0.1', definition: 'Display filter to show only packets sent TO the IP 10.0.0.1.', type: 'quiz' },
+            { category: CATEGORIES.WIRESHARK, term: 'tcp.port == 80', definition: 'Display filter to isolate traffic on TCP port 80 (HTTP).', type: 'quiz' },
+            { category: CATEGORIES.WIRESHARK, term: 'udp.port == 53', definition: 'Display filter to isolate traffic on UDP port 53 (DNS).', type: 'quiz' },
+            { category: CATEGORIES.WIRESHARK, term: 'http.request.method == "POST"', definition: 'Display filter to show only HTTP POST requests (often used for form submissions or data exfiltration).', type: 'quiz' },
+            { category: CATEGORIES.WIRESHARK, term: 'tcp.flags.syn == 1 && tcp.flags.ack == 0', definition: 'Display filter to identify the first step of a TCP 3-way handshake (SYN packet).', type: 'quiz' },
+            { category: CATEGORIES.WIRESHARK, term: 'frame contains "password"', definition: 'Display filter to search the packet payload for the text string "password" (Cleartext credential hunting).', type: 'quiz' },
+            { category: CATEGORIES.WIRESHARK, term: '!arp', definition: 'Display filter to exclude all Address Resolution Protocol (ARP) traffic from the view.', type: 'quiz' },
+            { category: CATEGORIES.WIRESHARK, term: 'Follow TCP Stream', definition: 'Wireshark feature that reassembles segmented TCP packets into a readable stream of data.', type: 'quiz' },
+            { category: CATEGORIES.WIRESHARK, term: 'Promiscuous Mode', definition: 'Network card setting required to capture all traffic on a local segment, not just traffic addressed to the host.', type: 'quiz' },
+            { category: CATEGORIES.WIRESHARK, term: 'Port Mirroring (SPAN)', definition: 'Switch configuration that duplicates traffic from one or more ports to a monitoring port for analysis.', type: 'quiz' },
+            { category: CATEGORIES.WIRESHARK, term: '.pcap / .pcapng', definition: 'Standard file extensions for packet capture data.', type: 'quiz' },
+            { category: CATEGORIES.WIRESHARK, term: 'BPF (Berkeley Packet Filter)', definition: 'The syntax used for "Capture Filters" (e.g., host 192.168.1.1) which determines what is saved to disk.', type: 'quiz' },
+            { category: CATEGORIES.WIRESHARK, term: 'http.response.code == 200', definition: 'Display filter to show only successful HTTP responses.', type: 'quiz' },
+            { category: CATEGORIES.WIRESHARK, term: 'dns.flags.response == 1', definition: 'Display filter to show only DNS responses (answers).', type: 'quiz' },
+
+            // ... (rest of existing data) ...
+            { category: CATEGORIES.LOG_FLAGS, term: 'Command Injection', definition: 'Log Pattern: Metacharacters like ";", "|", or "&&" found in input fields (e.g., msadc.pl command chaining).', type: 'quiz' },
+            { category: CATEGORIES.LOG_FLAGS, term: 'Cross-Site Scripting (XSS)', definition: 'Log Pattern: Input containing "<script>" tags or "javascript:" URIs in HTTP requests.', type: 'quiz' },
+            { category: CATEGORIES.LOG_FLAGS, term: 'Buffer Overflow', definition: 'Log/Hex Pattern: Long strings of "A" (0x41) or NOP sleds (0x90) sent to an application input.', type: 'quiz' },
+            { category: CATEGORIES.LOG_FLAGS, term: 'CSRF', definition: 'Red Flag: Requests that modify state (e.g., password change) without an anti-forgery token.', type: 'quiz' },
+            { category: CATEGORIES.LOG_FLAGS, term: 'Race Condition', definition: 'Code Red Flag: "Time of Check to Time of Use" (TOCTOU) logic errors in file access.', type: 'quiz' },
+            { category: CATEGORIES.LOG_FLAGS, term: 'Memory Leak', definition: 'Code Red Flag: Programs failing to free allocated memory, leading to resource exhaustion (DoS).', type: 'quiz' },
+            { category: CATEGORIES.LOG_FLAGS, term: 'Integer Overflow', definition: 'Code Red Flag: Arithmetic operations that exceed the maximum storage capacity of the data type.', type: 'quiz' },
+
+            // NEW: CISSP DATA ROLES
+            { category: CATEGORIES.DATA_ROLES, term: 'Data Owner', definition: 'The executive/management role with ultimate accountability for data classification, authorizing access, and business rules.', type: 'quiz' },
+            { category: CATEGORIES.DATA_ROLES, term: 'Data Custodian', definition: 'The technical role responsible for safe custody, transport, storage, backups, and implementation of security controls.', type: 'quiz' },
+            { category: CATEGORIES.DATA_ROLES, term: 'Data Steward', definition: 'Responsible for data quality, metadata, consistency, and context within the organization (Business side of data management).', type: 'quiz' },
+            { category: CATEGORIES.DATA_ROLES, term: 'Data Controller', definition: 'The entity that determines the "purposes and means" of processing personal data (GDPR context).', type: 'quiz' },
+            { category: CATEGORIES.DATA_ROLES, term: 'Data Processor', definition: 'An entity that processes personal data on behalf of the controller (e.g., a payroll service provider).', type: 'quiz' },
+            { category: CATEGORIES.DATA_ROLES, term: 'Data Subject', definition: 'The individual to whom the personal data relates.', type: 'quiz' },
+            { category: CATEGORIES.DATA_ROLES, term: 'System Owner', definition: 'Responsible for the actual computer system that houses the data, ensuring it is patched and secure.', type: 'quiz' },
+
+            // NMAP
+            { category: CATEGORIES.NMAP, term: '-sS', definition: 'SYN Scan (Stealth). No 3-way handshake.', type: 'nmap' },
+            { category: CATEGORIES.NMAP, term: '-sT', definition: 'Connect Scan. Full 3-way handshake.', type: 'nmap' },
+            { category: CATEGORIES.NMAP, term: '-O', definition: 'OS Detection.', type: 'nmap' },
+            { category: CATEGORIES.NMAP, term: '-sV', definition: 'Service Version Detection.', type: 'nmap' },
+            { category: CATEGORIES.NMAP, term: '-p-', definition: 'Scan all 65535 ports.', type: 'nmap' },
+            { category: CATEGORIES.NMAP, term: '-T4', definition: 'Timing: Aggressive (Fast).', type: 'nmap' },
+            { category: CATEGORIES.NMAP, term: '-A', definition: 'Aggressive Options (OS, Vers, Script, Trace).', type: 'nmap' },
+            { category: CATEGORIES.NMAP, term: '-sU', definition: 'UDP Scan.', type: 'nmap' },
+            { category: CATEGORIES.NMAP, term: '-sn', definition: 'Ping Scan (No Port Scan). Host discovery only.', type: 'nmap' },
+            { category: CATEGORIES.NMAP, term: '-n', definition: 'No DNS Resolution.', type: 'nmap' },
+            { category: CATEGORIES.NMAP, term: '-v', definition: 'Verbose Output.', type: 'nmap' },
+            { category: CATEGORIES.NMAP, term: '-iL', definition: 'Input from List (File).', type: 'nmap' },
+            { category: CATEGORIES.NMAP, term: '-oN', definition: 'Output Normal Format.', type: 'nmap' },
+            { category: CATEGORIES.NMAP, term: '-oG', definition: 'Output Grepable Format.', type: 'nmap' },
+            { category: CATEGORIES.NMAP, term: '-oX', definition: 'Output XML Format.', type: 'nmap' },
+            { category: CATEGORIES.NMAP, term: '-Pn', definition: 'Skip Host Discovery (No Ping). Treat all hosts as online.', type: 'nmap' },
+            { category: CATEGORIES.NMAP, term: '-sX', definition: 'Xmas Scan. Sets FIN, PSH, and URG flags. Used to bypass stateless firewalls.', type: 'nmap' },
+            { category: CATEGORIES.NMAP, term: '--script', definition: 'Execute Nmap Scripting Engine (NSE) scripts (e.g., vuln detection).', type: 'nmap' },
+
+            // RAID
+            { category: CATEGORIES.RAID, term: 'RAID 0', definition: 'Striping. No redundancy. Speed.', type: 'raid' },
+            { category: CATEGORIES.RAID, term: 'RAID 1', definition: 'Mirroring. Redundancy. 50% capacity.', type: 'raid' },
+            { category: CATEGORIES.RAID, term: 'RAID 5', definition: 'Striping w/ Parity. Min 3 disks. 1 failure.', type: 'raid' },
+            { category: CATEGORIES.RAID, term: 'RAID 6', definition: 'Striping w/ Double Parity. Min 4 disks. 2 failures.', type: 'raid' },
+            { category: CATEGORIES.RAID, term: 'RAID 10', definition: 'Stripe of Mirrors. High speed + redundancy.', type: 'raid' },
+
+            // PORTS
+            { category: CATEGORIES.PORTS, term: '21', definition: 'FTP Control', type: 'input' },
+            { category: CATEGORIES.PORTS, term: '22', definition: 'SSH / SCP / SFTP', type: 'input' },
+            { category: CATEGORIES.PORTS, term: '23', definition: 'Telnet', type: 'input' },
+            { category: CATEGORIES.PORTS, term: '25', definition: 'SMTP', type: 'input' },
+            { category: CATEGORIES.PORTS, term: '53', definition: 'DNS', type: 'input' },
+            { category: CATEGORIES.PORTS, term: '80', definition: 'HTTP', type: 'input' },
+            { category: CATEGORIES.PORTS, term: '443', definition: 'HTTPS', type: 'input' },
+            { category: CATEGORIES.PORTS, term: '3389', definition: 'RDP', type: 'input' },
+            { category: CATEGORIES.PORTS, term: '445', definition: 'SMB', type: 'input' },
+            { category: CATEGORIES.PORTS, term: '143', definition: 'IMAP', type: 'input' },
+            { category: CATEGORIES.PORTS, term: '110', definition: 'POP3', type: 'input' },
+            { category: CATEGORIES.PORTS, term: '389', definition: 'LDAP', type: 'input' },
+            { category: CATEGORIES.PORTS, term: '636', definition: 'LDAPS', type: 'input' },
+            { category: CATEGORIES.PORTS, term: '161', definition: 'SNMP', type: 'input' },
+
+            // SYSLOG
+            { category: CATEGORIES.SYSLOG, term: '0', definition: 'Emergency: System unusable', type: 'syslog', order: 0 },
+            { category: CATEGORIES.SYSLOG, term: '1', definition: 'Alert: Immediate action needed', type: 'syslog', order: 1 },
+            { category: CATEGORIES.SYSLOG, term: '2', definition: 'Critical: Critical conditions', type: 'syslog', order: 2 },
+            { category: CATEGORIES.SYSLOG, term: '3', definition: 'Error: Error conditions', type: 'syslog', order: 3 },
+            { category: CATEGORIES.SYSLOG, term: '4', definition: 'Warning: Warning conditions', type: 'syslog', order: 4 },
+            { category: CATEGORIES.SYSLOG, term: '5', definition: 'Notice: Normal but significant', type: 'syslog', order: 5 },
+            { category: CATEGORIES.SYSLOG, term: '6', definition: 'Informational: Info messages', type: 'syslog', order: 6 },
+            { category: CATEGORIES.SYSLOG, term: '7', definition: 'Debug: Debug messages', type: 'syslog', order: 7 },
+
+            // DIAMOND MODEL
+            { category: CATEGORIES.DIAMOND, term: 'Adversary', definition: 'The attacker (e.g., APT28)', type: 'diamond' },
+            { category: CATEGORIES.DIAMOND, term: 'Adversary', definition: 'Email Address of Attacker', type: 'diamond' },
+            { category: CATEGORIES.DIAMOND, term: 'Capability', definition: 'Tools/Malware used (e.g., Mimikatz)', type: 'diamond' },
+            { category: CATEGORIES.DIAMOND, term: 'Capability', definition: 'Exploit Kit / Zero-Day', type: 'diamond' },
+            { category: CATEGORIES.DIAMOND, term: 'Infrastructure', definition: 'IP Address / Domain', type: 'diamond' },
+            { category: CATEGORIES.DIAMOND, term: 'Infrastructure', definition: 'C2 Server / Botnet Nodes', type: 'diamond' },
+            { category: CATEGORIES.DIAMOND, term: 'Victim', definition: 'Target Organization / Asset', type: 'diamond' },
+            { category: CATEGORIES.DIAMOND, term: 'Victim', definition: 'Compromised Laptop / User', type: 'diamond' },
+
+            // MITRE
+            { category: CATEGORIES.MITRE, term: 'Tactics', definition: 'The "Why" - The Goal (e.g., Persistence)', type: 'quiz' },
+            { category: CATEGORIES.MITRE, term: 'Techniques', definition: 'The "How" - The Method (e.g., Registry Run Keys)', type: 'quiz' },
+            { category: CATEGORIES.MITRE, term: 'Procedures', definition: 'Specific Steps - Implementation', type: 'quiz' },
+
+            // KILL CHAIN
+            { category: CATEGORIES.KILLCHAIN, term: 'Reconnaissance', definition: 'Research/Selection', order: 1, type: 'killchain' },
+            { category: CATEGORIES.KILLCHAIN, term: 'Weaponization', definition: 'Pairing Exploit + Malware', order: 2, type: 'killchain' },
+            { category: CATEGORIES.KILLCHAIN, term: 'Delivery', definition: 'Transmission (Email/USB)', order: 3, type: 'killchain' },
+            { category: CATEGORIES.KILLCHAIN, term: 'Exploitation', definition: 'Triggering Code', order: 4, type: 'killchain' },
+            { category: CATEGORIES.KILLCHAIN, term: 'Installation', definition: 'Backdoor Install', order: 5, type: 'killchain' },
+            { category: CATEGORIES.KILLCHAIN, term: 'Command & Control', definition: 'Remote Channel Est.', order: 6, type: 'killchain' },
+            { category: CATEGORIES.KILLCHAIN, term: 'Actions on Objectives', order: 7, type: 'killchain' },
+
+            // NIST
+            { category: CATEGORIES.NIST, term: 'Identify', definition: 'Asset Mgmt, Risk Assessment', order: 1, type: 'nist' },
+            { category: CATEGORIES.NIST, term: 'Protect', definition: 'Access Control, Training', order: 2, type: 'nist' },
+            { category: CATEGORIES.NIST, term: 'Detect', definition: 'Monitoring, Anomalies', order: 3, type: 'nist' },
+            { category: CATEGORIES.NIST, term: 'Respond', definition: 'Analysis, Mitigation', order: 4, type: 'nist' },
+            { category: CATEGORIES.NIST, term: 'Recover', order: 5, type: 'nist' },
+
+            // IR (Incident Response)
+            { category: CATEGORIES.IR, term: 'Preparation', definition: 'Training, Policy, Tools Setup', order: 1, type: 'ir' },
+            { category: CATEGORIES.IR, term: 'Scope', definition: 'Detecting and determining scope', order: 2, type: 'ir' },
+            { category: CATEGORIES.IR, term: 'Containment', definition: 'Isolating systems/segments', order: 3, type: 'ir' },
+            { category: CATEGORIES.IR, term: 'Eradication', definition: 'Removing malware/root cause', order: 4, type: 'ir' },
+            { category: CATEGORIES.IR, term: 'Recovery', definition: 'Restoring to normal ops', order: 5, type: 'ir' },
+            { category: CATEGORIES.IR, term: 'Lessons Learned', order: 6, type: 'ir' },
+            
+            // NEW: Compensating Controls
+            { category: CATEGORIES.CONTROLS, term: 'Compensating Control', definition: 'Using encryption (VPN) when multi-factor authentication (MFA) is not feasible.', type: 'quiz' },
+            { category: CATEGORIES.CONTROLS, term: 'Deterrent Control', definition: 'Posting a privacy banner warning users against misuse.', type: 'quiz' },
+            { category: CATEGORIES.CONTROLS, term: 'Preventative Control', definition: 'Implementing a firewall rule to block traffic.', type: 'quiz' },
+            { category: CATEGORIES.CONTROLS, term: 'Detective Control', definition: 'Enabling audit logging in the SIEM.', type: 'quiz' },
+            { category: CATEGORIES.CONTROLS, term: 'Corrective Control', definition: 'Applying a patch after a vulnerability scan.', type: 'quiz' },
+            { category: CATEGORIES.CONTROLS, term: 'Physical Control', definition: 'Fences, locks, and security guards.', type: 'quiz' },
+            { category: CATEGORIES.CONTROLS, term: 'Managerial Control', definition: 'Policies, Risk Assessments, and Security Training.', type: 'quiz' },
+
+            // NEW: Digital Forensics
+            { category: CATEGORIES.FORENSICS, term: 'Chain of Custody', definition: 'Documenting every person who handles the evidence.', type: 'quiz' },
+            { category: CATEGORIES.FORENSICS, term: 'Order of Volatility', definition: 'Capturing CPU cache and registers before disk files.', type: 'quiz' },
+            { category: CATEGORIES.FORENSICS, term: 'Media Analysis', definition: 'Examining the contents of a hard drive image.', type: 'quiz' },
+            { category: CATEGORIES.FORENSICS, term: 'Data Acquisition', definition: 'Creating a bit-for-bit copy (forensic image).', type: 'quiz' },
+            { category: CATEGORIES.FORENSICS, term: 'Hashing', definition: 'Cryptographic process to verify data integrity (e.g., MD5, SHA-256).', type: 'quiz' },
+            { category: CATEGORIES.FORENSICS, term: 'ICAR', definition: 'The four phases of the digital forensics lifecycle: Identification, Collection, Analysis, and Reporting.', type: 'quiz' },
+
+            // NEW: SDLC
+            { category: CATEGORIES.SDLC, term: 'Design', definition: 'Creating threat models and architectural reviews.', type: 'quiz' },
+            { category: CATEGORIES.SDLC, term: 'Coding/Implementation', definition: 'Performing code review and static analysis (SAST).', type: 'quiz' },
+            { category: CATEGORIES.SDLC, term: 'Testing/Acceptance', definition: 'Running dynamic analysis (DAST) and fuzzing.', type: 'quiz' },
+            { category: CATEGORIES.SDLC, term: 'Deployment', definition: 'Setting up monitoring and configuration management.', type: 'quiz' },
+            { category: CATEGORIES.SDLC, term: 'Maintenance', definition: 'Applying security patches and hotfixes.', type: 'quiz' },
+
+            // NEW THREAT INTEL DATA (SEPARATED)
+            { category: CATEGORIES.THREAT_INTEL, term: 'APT', definition: 'Advanced Persistent Threat - A stealthy threat actor, typically a nation-state or state-sponsored group.', type: 'quiz' },
+            { category: CATEGORIES.THREAT_INTEL, term: 'IoC', definition: 'Indicator of Compromise - Forensic data found in logs that identifies potentially malicious activity.', type: 'quiz' },
+            { category: CATEGORIES.THREAT_INTEL, term: 'TTP', definition: 'Tactics, Techniques, and Procedures - The behavior and methodology of a threat actor.', type: 'quiz' },
+            { category: CATEGORIES.THREAT_INTEL, term: 'ISAC', definition: 'Information Sharing and Analysis Center - A non-profit for gathering threat info on critical infrastructure.', type: 'quiz' },
+            { category: CATEGORIES.THREAT_INTEL, term: 'Taxonomy', definition: 'The practice of classification of concepts (e.g., Kill Chain, Diamond Model).', type: 'quiz' },
+            { category: CATEGORIES.THREAT_INTEL, term: 'STIX', definition: 'Structured Threat Information eXpression - A standardized language for representing threat information.', type: 'quiz' },
+            { category: CATEGORIES.THREAT_INTEL, term: 'TAXII', definition: 'Trusted Automated eXchange of Indicator Information - A transport mechanism for sharing STIX data.', type: 'quiz' },
+            { category: CATEGORIES.THREAT_INTEL, term: 'Dark Web', definition: 'Overlay networks that use the Internet but require specific software, often used for illicit trading of threat data.', type: 'quiz' },
+            { category: CATEGORIES.THREAT_INTEL, term: 'Confidence Level', definition: 'A metric indicating the reliability and accuracy of the intelligence source.', type: 'quiz' },
+
+            // NEW: SOURCE INTELLIGENCE (SEPARATED)
+            { category: CATEGORIES.SOURCE_INTEL, term: 'OSINT', definition: 'Intelligence gathered from publicly available sources like social media, news, and public records.', type: 'quiz' },
+            { category: CATEGORIES.SOURCE_INTEL, term: 'HUMINT', definition: 'Intelligence gathered from human sources through interpersonal contact.', type: 'quiz' },
+            { category: CATEGORIES.SOURCE_INTEL, term: 'SIGINT', definition: 'Intelligence gathering by interception of signals, whether communications between people or from electronic signals not directly used in communication.', type: 'quiz' },
+            { category: CATEGORIES.SOURCE_INTEL, term: 'GEOINT', definition: 'Intelligence about the human activity on earth derived from the exploitation and analysis of imagery and geospatial information.', type: 'quiz' },
+            { category: CATEGORIES.SOURCE_INTEL, term: 'MASINT', definition: 'Intelligence derived from quantitative and qualitative analysis of physical attributes of targets and events.', type: 'quiz' },
+            { category: CATEGORIES.SOURCE_INTEL, term: 'CLOSINT', definition: 'Intelligence derived from confidential or proprietary sources not available to the public.', type: 'quiz' },
+            { category: CATEGORIES.SOURCE_INTEL, term: 'TECHINT', definition: 'Intelligence derived from the collection and analysis of threat force equipment and weapons systems.', type: 'quiz' },
+
+            // NEW: VULN MANAGEMENT
+            { category: CATEGORIES.VULN_MGMT, term: 'CVSS', definition: 'Common Vulnerability Scoring System - A framework for rating the severity of security vulnerabilities.', type: 'quiz' },
+            { category: CATEGORIES.VULN_MGMT, term: 'CVE', definition: 'Common Vulnerabilities and Exposures - A list of publicly disclosed cybersecurity vulnerabilities.', type: 'quiz' },
+            { category: CATEGORIES.VULN_MGMT, term: 'False Positive', definition: 'A scanner reporting a vulnerability that does not actually exist.', type: 'quiz' },
+            { category: CATEGORIES.VULN_MGMT, term: 'False Negative', definition: 'A scanner failing to report a real vulnerability that actually exists.', type: 'quiz' },
+            { category: CATEGORIES.VULN_MGMT, term: 'Credentialed Scan', definition: 'A scan that uses valid user credentials to inspect the internal configuration of a system.', type: 'quiz' },
+            { category: CATEGORIES.VULN_MGMT, term: 'Non-Credentialed Scan', definition: 'A scan performed without authentication, providing an outsider perspective.', type: 'quiz' },
+            { category: CATEGORIES.VULN_MGMT, term: 'Remediation', definition: 'The process of fixing or patching a vulnerability.', type: 'quiz' },
+            { category: CATEGORIES.VULN_MGMT, term: 'SCAP', definition: 'Security Content Automation Protocol - A suite of specifications for standardizing the format and nomenclature by which security software communicates software flaw and configuration information.', type: 'quiz' },
+            
+            // NEW: THREAT CLASSIFICATION (ACTORS)
+            { category: CATEGORIES.THREAT_CLASS, term: 'Script Kiddie', definition: 'An unskilled attacker who uses existing scripts or code to hack into systems.', type: 'quiz' },
+            { category: CATEGORIES.THREAT_CLASS, term: 'Hacktivist', definition: 'An attacker motivated by political or social causes rather than financial gain.', type: 'quiz' },
+            { category: CATEGORIES.THREAT_CLASS, term: 'Nation State', definition: 'Highly sophisticated, well-funded attackers often targeting critical infrastructure or intellectual property (APT).', type: 'quiz' },
+            { category: CATEGORIES.THREAT_CLASS, term: 'Insider Threat', definition: 'A current or former employee, contractor, or business partner who has legitimate access to the network.', type: 'quiz' },
+            { category: CATEGORIES.THREAT_CLASS, term: 'Organized Crime', definition: 'Criminal groups driven by financial gain, often using ransomware or fraud.', type: 'quiz' },
+            { category: CATEGORIES.THREAT_CLASS, term: 'Competitor', definition: 'A rival company engaging in corporate espionage to gain a market advantage.', type: 'quiz' },
+            
+            // NEW: CLOUD SECURITY
+            { category: CATEGORIES.CLOUD, term: 'CASB', definition: 'Cloud Access Security Broker - An enforcement point between cloud providers and cloud consumers.', type: 'quiz' },
+            { category: CATEGORIES.CLOUD, term: 'CSPM', definition: 'Cloud Security Posture Management - Automated identification and remediation of risks across cloud infrastructures.', type: 'quiz' },
+            { category: CATEGORIES.CLOUD, term: 'SWG', definition: 'Secure Web Gateway - Used to filter web traffic and enforce corporate policies.', type: 'quiz' },
+            { category: CATEGORIES.CLOUD, term: 'CWPP', definition: 'Cloud Workload Protection Platform - Security for workloads across multiple cloud environments.', type: 'quiz' },
+            { category: CATEGORIES.CLOUD, term: 'SaaS', definition: 'Software as a Service - Application hosted by a provider.', type: 'quiz' },
+            { category: CATEGORIES.CLOUD, term: 'IaaS', definition: 'Infrastructure as a Service - Virtualized computing resources over the internet.', type: 'quiz' },
+            { category: CATEGORIES.CLOUD, term: 'PaaS', definition: 'Platform as a Service - Platform allowing customers to develop, run, and manage applications.', type: 'quiz' },
+        ];
+
+        // --- SOUND SYSTEM ---
+        class SoundController {
+            constructor() {
+                this.ctx = null;
+                this.enabled = false;
+                this.musicNodes = [];
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    this.enabled = true;
+                } else if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+            
+            // --- Music Loop Generators ---
+            createAmbientDrone(freq, gainValue, type) {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(gainValue * 0.5, this.ctx.currentTime); 
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.loop = true;
+                this.musicNodes.push(osc);
+                return osc;
+            }
+
+            createPulsingBeat(freq, gainValue) {
+                if (!this.enabled || !this.ctx) return;
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(400, this.ctx.currentTime); 
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(gainValue * 0.8, this.ctx.currentTime);
+                
+                const osc = this.ctx.createOscillator();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                
+                // Pulsing filter effect
+                const lfo = this.ctx.createOscillator();
+                lfo.frequency.setValueAtTime(4, this.ctx.currentTime); 
+                lfo.connect(filter.frequency);
+                lfo.start(0);
+
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                
+                osc.loop = true;
+                this.musicNodes.push(osc);
+                return osc;
+            }
+
+            createDistortedAlarm(freq, gainValue) {
+                if (!this.enabled || !this.ctx) return;
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(gainValue * 1.5, this.ctx.currentTime); 
+
+                const osc = this.ctx.createOscillator();
+                osc.type = 'square';
+                // Warbling siren effect
+                const warble = this.ctx.createOscillator();
+                warble.type = 'sine';
+                warble.frequency.setValueAtTime(5, this.ctx.currentTime);
+                warble.connect(osc.frequency);
+                warble.start(0);
+                
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime); 
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                
+                osc.loop = true;
+                this.musicNodes.push(osc);
+                return osc;
+            }
+            // --- End Music Loop Generators ---
+
+            stopAllMusic() {
+                this.musicNodes.forEach(node => {
+                    try {
+                        node.stop(this.ctx.currentTime + 0.1);
+                    } catch (e) { /* ignore */ }
+                });
+                this.musicNodes = [];
+            }
+
+            // --- SFX Presets ---
+            play(freq, type, duration, vol=0.1, slide=0) {
+                if(!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                if(slide !== 0) {
+                    osc.frequency.linearRampToValueAtTime(freq + slide, this.ctx.currentTime + duration);
+                }
+                
+                gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            }
+
+            hover() { this.play(800, 'sine', 0.03, 0.02); }
+            click() { this.play(1200, 'square', 0.05, 0.05); }
+            typing() { this.play(600 + Math.random()*400, 'square', 0.02, 0.03); }
+            msg() { this.play(1000, 'sine', 0.1, 0.1, 500); }
+            
+            success() { 
+                this.play(880, 'sine', 0.1, 0.1); 
+                setTimeout(()=>this.play(1760, 'square', 0.2, 0.05), 100); 
+            }
+            
+            error() { 
+                this.play(150, 'sawtooth', 0.3, 0.15, -50); 
+                setTimeout(()=>this.play(100, 'sawtooth', 0.3, 0.15, -50), 150);
+            }
+            
+            glitch() {
+                for(let i=0; i<6; i++) {
+                    setTimeout(() => this.play(200 + Math.random()*1000, 'sawtooth', 0.05, 0.05), i*40);
+                }
+            }
+            
+            boot() {
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.frequency.setValueAtTime(100, now);
+                osc.frequency.exponentialRampToValueAtTime(2000, now + 1.5);
+                gain.gain.setValueAtTime(0.05, now);
+                gain.gain.linearRampToValueAtTime(0, now + 1.5);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(now + 1.5);
+            }
+            
+            rankUp() {
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(220, now);
+                osc.frequency.setValueAtTime(440, now + 0.2);
+                osc.frequency.setValueAtTime(880, now + 0.4);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.linearRampToValueAtTime(0, now + 1.0);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(now + 1.0);
+            }
+            
+            siren() {
+                this.play(440, 'square', 0.2, 0.15, 200);
+                setTimeout(() => this.play(640, 'square', 0.2, 0.15, -200), 200);
+            }
+        }
+        
+        const sfx = new SoundController();
+
+        // --- MUSIC CONTROLLER ---
+        class MusicController {
+            constructor(sfxController) {
+                this.sfx = sfxController;
+                this.currentType = null;
+            }
+
+            crossfadeTo(newType) {
+                // If switching to silence, stop music
+                if (newType === 'silence') {
+                    this.sfx.stopAllMusic();
+                    this.currentType = 'silence';
+                    return;
+                }
+
+                if (this.currentType === newType) return;
+
+                this.sfx.stopAllMusic();
+                this.currentType = newType;
+
+                if (newType === 'calm_menu') {
+                    this.sfx.createAmbientDrone(120, 0.04, 'sine');
+                    this.sfx.createAmbientDrone(240, 0.02, 'sawtooth');
+                } else if (newType === 'medium_tension') {
+                    this.sfx.createPulsingBeat(100, 0.12);
+                } else if (newType === 'red_alert') {
+                    this.sfx.createDistortedAlarm(50, 0.15);
+                }
+                
+                this.sfx.musicNodes.forEach(node => {
+                    try { node.start(0); } catch(e) { /* already started */ }
+                });
+            }
+        }
+        const music = new MusicController(sfx);
+
+
+        // --- VOICE SYSTEM (AI) ---
+        class VoiceSystem {
+            constructor() {
+                this.synth = window.speechSynthesis;
+                this.voice = null;
+                this.enabled = true;
+                
+                if (speechSynthesis.onvoiceschanged !== undefined) {
+                    speechSynthesis.onvoiceschanged = () => this.setVoice();
+                }
+                this.setVoice();
+            }
+
+            setVoice() {
+                const voices = this.synth.getVoices();
+                this.voice = voices.find(v => v.name.includes('Google US English')) || 
+                             voices.find(v => v.name.includes('Samantha')) || 
+                             voices[0];
+            }
+
+            speak(text, force = false) {
+                // Force allows booting/intro sounds. Otherwise, silence during gameplay.
+                if (!this.enabled || !this.synth) return;
+                
+                // SILENCE LOGIC: If state.view implies gameplay, suppress voice unless forced (like a hint or victory).
+                // Actually, request was "take out audio when playing games".
+                // We'll rely on the caller to not call speak() during gameplay loops.
+                
+                this.synth.cancel(); 
+                const utterance = new SpeechSynthesisUtterance(text);
+                if (this.voice) utterance.voice = this.voice;
+                utterance.pitch = 0.9; 
+                utterance.rate = 1.15; 
+                utterance.volume = 0.9;
+                this.synth.speak(utterance);
+            }
+
+            boot() { this.speak("Hacker Ops System Initialized.", true); }
+            briefing() { this.speak("Incoming encrypted transmission.", true); }
+            report() { this.speak("Sector secured. Uploading telemetry.", true); }
+            threat() { /* Silent during gameplay */ } 
+            breach() { /* Silent during gameplay */ }
+            
+            failRandom() { /* Silent during gameplay */ }
+        }
+        const voice = new VoiceSystem();
+
+        // --- SOC CHAT SYSTEM ---
+        class SocChat {
+            constructor() {
+                this.agents = [
+                    { name: 'Cipher', color: '#00ffff' },
+                    { name: 'Hunter', color: '#ff9900' },
+                    { name: 'Oracle', color: '#ff00ff' },
+                    { name: 'Zero', color: '#00ff00' }
+                ];
+                this.reactions = {
+                    start: ["Link established.", "Target acquired.", "Ops are live.", "Monitoring feed."],
+                    success: ["Confirmed.", "Solid copy.", "Target neutralized.", "Clean execution."],
+                    fail: ["Negative!", "Breach detected!", "Signal lost.", "Error in sector 7."]
+                };
+            }
+
+            add(text, sender = null) {
+                const win = document.getElementById('soc-chat-window');
+                if(!win) return;
+                
+                const agent = sender || this.agents[Math.floor(Math.random() * this.agents.length)];
+                const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                
+                const div = document.createElement('div');
+                div.className = 'chat-msg';
+                div.innerHTML = `
+                    <span class="chat-time">[${time}]</span>
+                    <span class="chat-sender" style="color:${agent.color}">${agent.name}:</span>
+                    <span class="chat-text">${text}</span>
+                `;
+                win.appendChild(div);
+                win.scrollTop = win.scrollHeight;
+                sfx.msg();
+            }
+
+            react(type) {
+                const msgs = this.reactions[type];
+                if(msgs) {
+                    const msg = msgs[Math.floor(Math.random() * msgs.length)];
+                    this.add(msg);
+                }
+            }
+        }
+        const socChat = new SocChat();
+
+        // --- CUTSCENE MANAGER ---
+        const cutscene = {
+            layer: document.getElementById('cutscene-layer'),
+            text: document.getElementById('cutscene-text'),
+            bar: document.getElementById('cutscene-progress'),
+            fill: document.querySelector('.progress-fill'),
+            
+            // Briefing Elements
+            briefingModal: document.getElementById('briefing-modal'),
+            briefingContent: document.getElementById('briefing-content'),
+            scrollingLogs: document.getElementById('scrolling-logs'),
+            
+            // Report Elements
+            reportModal: document.getElementById('report-modal'),
+            rankDisplay: document.getElementById('rank-display'),
+            reportSummary: document.getElementById('report-summary'),
+            reportThreat: document.getElementById('report-threat'),
+            reportUnlock: document.getElementById('report-unlock'),
+            reportDashboard: document.getElementById('report-dashboard'),
+            
+            onAck: null,
+            logInterval: null,
+            sirenInterval: null,
+            
+            reset: function() {
+                document.body.classList.remove('red-alert-mode');
+                document.getElementById('red-alert-screen').style.display = 'none';
+                
+                this.layer.classList.add('hidden');
+                this.bar.classList.add('hidden');
+                this.briefingModal.style.display = 'none';
+                this.reportModal.style.display = 'none';
+                this.text.innerHTML = '';
+                if(this.logInterval) clearInterval(this.logInterval);
+                if(this.sirenInterval) clearInterval(this.sirenInterval);
+            },
+            
+            startLogs: function() {
+                const hex = "0123456789ABCDEF";
+                this.logInterval = setInterval(() => {
+                    let line = "> ";
+                    for(let i=0; i<40; i++) line += hex[Math.floor(Math.random()*16)];
+                    const p = document.createElement('div');
+                    p.innerText = line;
+                    this.scrollingLogs.prepend(p);
+                    if(this.scrollingLogs.children.length > 8) this.scrollingLogs.lastChild.remove();
+                }, 100);
+            },
+            
+            startSiren: function() {
+                this.sirenInterval = setInterval(() => sfx.siren(), 400);
+            },
+
+            play: function(lines, onComplete) {
+                this.reset();
+                this.layer.classList.remove('hidden');
+                
+                let lineIndex = 0;
+                const showNextLine = () => {
+                    if (lineIndex >= lines.length) {
+                        setTimeout(() => { this.reset(); if(onComplete) onComplete(); }, 800);
+                        return;
+                    }
+                    const p = document.createElement('div');
+                    p.style.marginBottom = '5px';
+                    this.text.appendChild(p);
+                    const line = lines[lineIndex];
+                    let charIndex = 0;
+                    const typeChar = () => {
+                        if (charIndex < line.length) {
+                            p.textContent += line[charIndex];
+                            charIndex++;
+                            if (charIndex % 2 === 0) sfx.typing();
+                            setTimeout(typeChar, 20);
+                        } else {
+                            lineIndex++;
+                            sfx.play(400, 'sine', 0.1, 0.02);
+                            setTimeout(showNextLine, 400);
+                        }
+                    };
+                    typeChar();
+                };
+                showNextLine();
+            },
+            
+            boot: function(onComplete) {
+                sfx.boot();
+                this.play([
+                    "Initializing KERNEL...", "Loading CySA+ Modules...", 
+                    "[OK] Network_Security", "[OK] Threat_Intel", 
+                    "Decrypting User Interface...", "ACCESS GRANTED."
+                ], onComplete);
+            },
+            
+            transition: function(targetName, onComplete) {
+                sfx.glitch();
+                this.reset();
+                this.layer.classList.remove('hidden');
+                this.text.innerHTML = `<div style="text-align:center; margin-bottom:20px;">ACCESSING: ${targetName}</div>`;
+                this.bar.classList.remove('hidden');
+                this.fill.style.width = '0%';
+                
+                setTimeout(() => { this.fill.style.width = '50%'; sfx.play(400, 'square', 0.1); }, 200);
+                setTimeout(() => { this.fill.style.width = '100%'; sfx.success(); }, 600);
+                setTimeout(() => { this.reset(); if(onComplete) onComplete(); }, 1000);
+            },
+
+            briefing: function(text, onAck) {
+                voice.briefing();
+                this.reset();
+                this.layer.classList.remove('hidden');
+                this.briefingModal.style.display = 'block';
+                this.briefingContent.textContent = '';
+                this.onAck = onAck;
+                
+                this.startLogs();
+
+                let charIndex = 0;
+                const typeChar = () => {
+                    if (charIndex < text.length) {
+                        this.briefingContent.textContent += text[charIndex];
+                        charIndex++;
+                        if (charIndex % 3 === 0) sfx.typing();
+                        setTimeout(typeChar, 15);
+                    }
+                };
+                typeChar();
+            },
+
+            ackBriefing: function() {
+                sfx.click();
+                this.reset();
+                if (this.onAck) this.onAck();
+            },
+            
+            report: function(data, onAck) {
+                voice.report();
+                sfx.rankUp();
+                this.reset();
+                this.layer.classList.remove('hidden');
+                this.reportModal.style.display = 'block';
+                this.onAck = onAck;
+                
+                this.rankDisplay.innerText = data.rank;
+                this.reportSummary.innerText = data.summary;
+                this.reportThreat.innerText = "NEW THREAT DETECTED: " + data.threat;
+                this.reportUnlock.innerText = "NEW AREA UNLOCKED: " + data.unlock;
+
+                // Render Dashboard
+                const stats = calculateStats();
+                this.reportDashboard.innerHTML = `
+                    <div class="dashboard-grid">
+                        <div class="stat-box" style="border-color:var(--neon-green)">
+                            <div class="stat-label">Accuracy</div>
+                            <div class="stat-value" style="color:var(--neon-green)">${stats.accuracy}%</div>
+                        </div>
+                        <div class="stat-box" style="border-color:var(--neon-orange)">
+                            <div class="stat-label">Fastest Response</div>
+                            <div class="stat-value" style="color:var(--neon-orange)">${stats.fastestAnswer}ms</div>
+                        </div>
+                        <div class="stat-box" style="grid-column: span 2; border-color:var(--neon-red)">
+                            <div class="stat-label">Weakest Domain Identified</div>
+                            <div class="stat-value" style="color:var(--neon-red); font-size: 1rem;">${stats.weakestCategory} (Errors: ${stats.maxErrors})</div>
+                        </div>
+                        <div class="stat-box" style="border-color:var(--neon-blue)">
+                            <div class="stat-label">Threats Neutralized</div>
+                            <div class="stat-value" style="color:var(--neon-blue)">${stats.totalThreats}</div>
+                        </div>
+                        <div class="stat-box" style="border-color:var(--neon-purple)">
+                            <div class="stat-label">Time Under Pressure</div>
+                            <div class="stat-value" style="color:var(--neon-purple)">${stats.timeUnderPressure}s</div>
+                        </div>
+                        <div class="stat-box" style="grid-column: span 2; border-color:var(--neon-green); background:rgba(0, 50, 0, 0.4);">
+                            <div class="stat-label">XP GAINED</div>
+                            <div class="stat-value" style="color:var(--neon-green); text-shadow:0 0 10px var(--neon-green)">${stats.xpGained}</div>
+                        </div>
+                    </div>
+                `;
+            },
+            
+            ackReport: function() {
+                sfx.click();
+                this.reset();
+                if (this.onAck) this.onAck();
+            }
+        };
+
+        // --- STATE ---
+        const state = {
+            view: 'splash', 
+            playerName: '',
+            badgeNumber: null,
+            specialty: null,
+            xp: 0,
+            rankIndex: 0, 
+            currentGameCategory: null,
+            sessionScore: 0,
+            initialQueueLength: 0, 
+            flashcardIndex: 0,
+            flashcardFlipped: false,
+            examQueue: [],
+            replayQueue: [], 
+            wrongAnswersHistory: [], 
+            weaknesses: new Set(),
+            consecutiveErrors: 0, 
+            overrideCode: null, 
+            currentQuestionStartTime: null, 
+            sessionStats: { totalCorrect: 0, totalAttempted: 0, times: [], errorsByCategory: {} },
+            
+            // SOC SIMULATOR STATE
+            socState: {
+                running: false,
+                currentAlert: null,
+                score: 0,
+                timer: null,
+                logInterval: null,
+                alertInterval: null,
+                alertRate: 1000, 
+                logSpeed: 50,
+                level: 1,
+                lastAlertTime: 0
+            }
+        };
+
+        const app = document.getElementById('app');
+        const matrixCanvas = document.getElementById('matrix');
+
+        // --- MATRIX EFFECT ---
+        const ctx = matrixCanvas.getContext('2d');
+        matrixCanvas.width = window.innerWidth;
+        matrixCanvas.height = window.innerHeight;
+        const letters = '01ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const fontSize = 16;
+        const columns = matrixCanvas.width / fontSize;
+        const drops = Array(Math.floor(columns)).fill(1);
+
+        function drawMatrix() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            ctx.fillRect(0, 0, matrixCanvas.width, matrixCanvas.height);
+            // Dynamic color based on alert status
+            ctx.fillStyle = document.body.classList.contains('red-alert-mode') ? 'rgba(255, 0, 0, 0.6)' : '#0F0';
+            ctx.font = fontSize + 'px monospace';
+            for (let i = 0; i < drops.length; i++) {
+                const text = letters.charAt(Math.floor(Math.random() * letters.length));
+                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+                if (drops[i] * fontSize > matrixCanvas.height && Math.random() > 0.975) drops[i] = 0;
+                drops[i]++;
+            }
+        }
+        setInterval(drawMatrix, 33);
+        window.addEventListener('resize', () => { matrixCanvas.width = window.innerWidth; matrixCanvas.height = window.innerHeight; });
+
+        // --- NAVIGATION & GAME LOGIC ---
+        
+        function getRank() {
+            const rankIndex = Math.floor(state.xp / XP_PER_RANK);
+            state.rankIndex = Math.min(rankIndex, RANKS.length - 1);
+            return RANKS[state.rankIndex];
+        }
+
+        function calculateStats() {
+            const stats = state.sessionStats;
+            const accuracy = stats.totalAttempted > 0 ? ((stats.totalCorrect / stats.totalAttempted) * 100).toFixed(1) : 0.0;
+            const times = stats.times.filter(t => t > 0); 
+            const fastest = times.length > 0 ? Math.min(...times) : 0;
+
+            let weakestCategory = 'N/A';
+            let maxErrors = 0;
+            for (const category in stats.errorsByCategory) {
+                if (stats.errorsByCategory[category] > maxErrors) {
+                    maxErrors = stats.errorsByCategory[category];
+                    weakestCategory = category;
+                }
+            }
+            
+            const totalErrors = Object.values(stats.errorsByCategory).reduce((a, b) => a + b, 0);
+            const timeUnderPressure = (totalErrors * 2).toFixed(1); 
+
+            return {
+                accuracy: accuracy,
+                fastestAnswer: fastest,
+                weakestCategory: weakestCategory,
+                maxErrors: maxErrors,
+                totalThreats: stats.totalCorrect,
+                timeUnderPressure: timeUnderPressure,
+                xpGained: stats.totalCorrect * 15 
+            };
+        }
+
+        function resetSessionStats() {
+            state.sessionStats = { totalCorrect: 0, totalAttempted: 0, times: [], errorsByCategory: {} };
+        }
+
+
+        function setView(view) {
+            // SILENCE MUSIC IN GAMEPLAY MODES
+            if(view === 'game' || view === 'exam' || view === 'wrong_test' || view === 'soc_simulator') {
+                music.crossfadeTo('silence');
+            } else {
+                music.crossfadeTo('calm_menu');
+            }
+            
+            // Stop simulator if switching away
+            if (state.socState.running && view !== 'soc_simulator') {
+                clearInterval(state.socState.logInterval);
+                clearInterval(state.socState.alertInterval);
+                state.socState.running = false;
+                socChat.add("Tier 1 simulator terminated.");
+            }
+
+            let transitionName = "DATA_LINK";
+            if(view === 'home') transitionName = "WAR_GAMES_HUB";
+            if(view === 'study') transitionName = "STUDY_ARCHIVES";
+            if(view === 'flashcards') transitionName = "DATA_DECRYPTION";
+            if(view === 'exam') transitionName = "CERTIFICATION_EXAM";
+            if(view === 'wrong_test') transitionName = "REPLAY_FAILURE_MODE";
+            if(view === 'resources') transitionName = "RESOURCE_HUB_ACCESS";
+            if(view === 'credits') transitionName = "CREDITS_PROTOCOL";
+            if(view === 'live_ops') transitionName = "LIVE_OPS_HUB";
+
+
+            cutscene.transition(transitionName, () => {
+                state.view = view;
+                render();
+            });
+        }
+        
+        function startGame(cat) {
+            state.currentGameCategory = cat;
+            resetSessionStats(); 
+            state.sessionScore = 0;
+            state.consecutiveErrors = 0;
+            
+            // PULL DATA BASED ON GAME TYPE FOR FOCUSED PRACTICE
+            const gameType = STUDY_DATA.find(d => d.category === cat)?.type || 'quiz';
+            const categoryData = STUDY_DATA.filter(d => d.type === gameType); 
+            
+            state.currentDataQueue = shuffle([...categoryData]);
+            state.initialQueueLength = categoryData.length; 
+            
+            const instr = GAME_INSTRUCTIONS[cat];
+            cutscene.briefing(instr, () => {
+                state.view = 'game';
+                render();
+                voice.threat(); 
+            });
+        }
+        
+        function checkProgress() {
+            const stats = calculateStats();
+            state.xp += stats.xpGained; 
+
+            state.sessionScore++;
+            
+            // Game clear condition: When the session score reaches the total unique question count (all answered correctly once)
+            if (state.sessionScore >= state.initialQueueLength) {
+                if(state.rankIndex < RANKS.length - 1) getRank(); // Update rank if XP crossed threshold
+                const threatNames = ["POLYMORPHIC_WORM_X9", "APT_LAZARUS_CLONE", "ZERO_DAY_EXPLOIT_V2", "QUANTUM_DECRYPTER"];
+                const areas = ["SECTOR_7_LOGS", "KERNEL_LEVEL_0", "DARKWEB_NODE", "SATELLITE_UPLINK"];
+                
+                setTimeout(() => {
+                    cutscene.report({
+                        summary: `MISSION ACCOMPLISHED. ${state.currentGameCategory} SECURED.`,
+                        rank: "PROMOTED TO: " + getRank(),
+                        threat: threatNames[Math.floor(Math.random() * threatNames.length)],
+                        unlock: areas[Math.floor(Math.random() * areas.length)]
+                    }, () => setView('home'));
+                }, 1000);
+            }
+        }
+
+        // --- RED ALERT CHALLENGE LOGIC ---
+        function generateCode() {
+            state.overrideCode = Math.floor(1000 + Math.random() * 9000).toString();
+            return state.overrideCode;
+        }
+
+        window.triggerRedAlert = () => {
+            music.crossfadeTo('red_alert');
+            const code = generateCode();
+            document.body.classList.add('red-alert-mode');
+            document.getElementById('red-alert-screen').style.display = 'flex';
+            cutscene.startSiren();
+            voice.breach();
+            
+            // If in SOC simulator, stop it
+            if (state.socState.running) {
+                clearInterval(state.socState.logInterval);
+                clearInterval(state.socState.alertInterval);
+                state.socState.running = false;
+            }
+            
+            document.getElementById('override-challenge').innerHTML = `
+                <div style="font-size: 1.2rem; margin-bottom: 15px;">
+                    OVERRIDE CODE: <span style="color:white; background:var(--neon-red); padding: 5px 10px;">${code}</span>
+                </div>
+                <input type="text" id="overrideInput" placeholder="TYPE CODE HERE..." style="text-align:center; font-size: 2rem; width: 250px; color:var(--neon-red); border-color:var(--neon-red);">
+                
+                <div style="margin-top: 15px;">
+                    <button onclick="checkOverride()" style="color:white; border-color:var(--neon-red); background:var(--neon-red);">EXECUTE OVERRIDE</button>
+                    <button onclick="showRedAlertHint()" style="color:var(--neon-blue); border-color:var(--neon-blue); background:rgba(0,0,50,0.5);">REQUEST HINT</button>
+                </div>
+            `;
+            setTimeout(() => document.getElementById('overrideInput').focus(), 100);
+        }
+
+        window.showRedAlertHint = () => {
+            // Hint for War Games/Exam logic
+            if (state.view === 'game' || state.view === 'exam' || state.view === 'wrong_test') {
+                const current = state.currentDataQueue[0];
+                const hintText = `HINT: ${current.term}\n\nDEFINITION: ${current.definition}`;
+                voice.speak("Hint provided. Retry the sequence.");
+                
+                document.getElementById('override-challenge').innerHTML = `
+                    <h3 style="color:var(--neon-green)">HINT DECRYPTED</h3>
+                    <p style="color:#aaa; font-size:1rem; white-space: pre-wrap; margin-bottom: 20px;">${hintText}</p>
+                    <button onclick="dismissHint()" style="color:var(--neon-green); border-color:var(--neon-green); background:rgba(0,50,0,0.5);">RETRY MISSION</button>
+                `;
+            } else if (state.view === 'soc_simulator') {
+                 // Hint for SOC Simulator
+                voice.speak("Hint provided. Review Alert priority matrix.");
+                const currentAlert = state.socState.currentAlert;
+                 document.getElementById('override-challenge').innerHTML = `
+                    <h3 style="color:var(--neon-green)">HINT DECRYPTED</h3>
+                    <p style="color:#aaa; font-size:1rem; white-space: pre-wrap; margin-bottom: 20px;">
+                        ALERT TYPE: ${currentAlert ? currentAlert.type : 'UNKNOWN'}
+                        \nSCORE ACTION: ${currentAlert ? (currentAlert.type === 'FP' ? 'Ignore' : (currentAlert.type === 'LSI' ? 'Investigate' : 'Escalate')) : 'N/A'}
+                    </p>
+                    <button onclick="dismissHint()" style="color:var(--neon-green); border-color:var(--neon-green); background:rgba(0,50,0,0.5);">RETRY Triage</button>
+                `;
+            }
+        }
+
+        window.dismissHint = () => {
+            state.consecutiveErrors = 0; // Crucial reset
+            cutscene.reset();
+            music.crossfadeTo('silence'); // Back to silence for focus
+            
+            if (state.view === 'soc_simulator') {
+                startTriageGame(); // Resume simulator correctly
+            } else {
+                 renderGame(document.getElementById('main-content')); // Resume game mode
+            }
+        }
+
+
+        window.checkOverride = () => {
+            const input = document.getElementById('overrideInput').value.trim();
+            if (input === state.overrideCode) {
+                sfx.success();
+                voice.speak("Override successful. Returning control.");
+                state.consecutiveErrors = 0; // Reset error streak
+                document.body.classList.remove('red-alert-mode');
+                cutscene.reset();
+                music.crossfadeTo('silence'); // Back to silence
+                
+                if (state.view === 'soc_simulator') {
+                    startTriageGame(); // Resume simulator correctly
+                } else {
+                    renderGame(document.getElementById('main-content'));
+                }
+            } else {
+                sfx.error();
+                voice.speak("Incorrect code. Try again.");
+                document.getElementById('overrideInput').value = '';
+                document.getElementById('overrideInput').classList.add('shake');
+                setTimeout(() => document.getElementById('overrideInput').classList.remove('shake'), 400);
+            }
+        }
+        
+        // Attach sound to all buttons periodically
+        setInterval(() => {
+            document.querySelectorAll('button:not(#overrideInput), .game-card, .study-item, .chain-node, .diamond-node, .nist-block, .syslog-level, .tracker-item').forEach(btn => {
+                if(!btn.hasSound) {
+                    btn.addEventListener('mouseenter', () => sfx.hover());
+                    btn.addEventListener('click', () => sfx.click());
+                    btn.hasSound = true;
+                }
+            });
+        }, 1000);
+
+        // --- PROFILE DISPLAY ---
+        function renderProfileDisplay(navContainer) {
+             const xpPercent = Math.min(100, (state.xp % XP_PER_RANK) / XP_PER_RANK * 100).toFixed(0);
+             navContainer.innerHTML = `
+                <div>
+                    <span style="font-size:1.5rem; font-weight:bold;">[HACKER_OPS]</span>
+                    <span class="text-small"> :: AGENT: ${state.playerName || 'GUEST'}</span>
+                    <span class="text-small"> :: BADGE: ${state.badgeNumber || '000'}</span>
+                    <span class="text-small"> :: SPECIALTY: ${state.specialty || 'UNASSIGNED'}</span>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-weight:bold; color:var(--neon-orange);">${getRank()}</div>
+                    <div style="display:flex; align-items:center; gap:5px; margin-top:3px; font-size:0.8rem;">
+                        <span style="color:#666">XP: ${state.xp}</span>
+                        <div style="width:100px; height:8px; background:#111; border:1px solid var(--neon-green); overflow:hidden;">
+                            <div style="height:100%; width:${xpPercent}%; background:var(--neon-green); transition: width 0.5s;"></div>
+                        </div>
+                        <span style="color:var(--neon-green);">${xpPercent}%</span>
+                    </div>
+                </div>
+            `;
+        }
+
+
+        function render() {
+            app.innerHTML = '';
+            
+            if (state.view === 'splash') { renderSplash(); return; }
+
+            const layout = document.createElement('div');
+            layout.className = 'main-layout';
+            app.appendChild(layout);
+
+            const mainCol = document.createElement('div');
+            mainCol.style.minWidth = '0';
+            layout.appendChild(mainCol);
+
+            const chatCol = document.createElement('div');
+            chatCol.innerHTML = `
+                <div class="panel chat-container">
+                    <div class="chat-header">/// LIVE_OPS_CHANNEL</div>
+                    <div id="soc-chat-window" class="chat-window"></div>
+                    <div style="border-top:1px solid #333; padding-top:10px; opacity:0.5; font-size:0.8rem;">
+                        > RANK: ${getRank()}
+                    </div>
+                </div>
+            `;
+            layout.appendChild(chatCol);
+
+            const nav = document.createElement('div');
+            nav.className = 'nav-bar panel';
+            renderProfileDisplay(nav); // Render profile and rank in nav
+            mainCol.appendChild(nav);
+            
+            // Render Nav Buttons below profile display
+            const navButtons = document.createElement('div');
+            navButtons.className = 'nav-bar panel';
+            navButtons.style.justifyContent = 'flex-start';
+            navButtons.style.gap = '15px';
+            navButtons.innerHTML = `
+                <button onclick="setView('study')">STUDY_CORE</button>
+                <button onclick="setView('home')">WAR_GAMES</button>
+                <button onclick="setView('live_ops')">LIVE_OPS</button> 
+                <button onclick="setView('flashcards')">DATA_CARDS</button>
+                <button onclick="startWrongTest()">REPLAY_FAILURES</button>
+                <button onclick="setView('resources')">RESOURCE_HUB</button>
+                <button onclick="setView('credits')">CREDITS</button>
+                <button onclick="startCysaTest()" style="color:#fff; border-color:#d946ef; box-shadow:0 0 5px #d946ef;">CySA+ 003 TEST</button>
+                <button onclick="startExam()" class="btn-danger">FINAL_EXAM</button>
+            `;
+            mainCol.appendChild(navButtons);
+
+            const content = document.createElement('div');
+            content.className = 'panel';
+            content.id = 'main-content';
+            mainCol.appendChild(content);
+
+            switch(state.view) {
+                case 'home': renderHome(content); break;
+                case 'study': renderStudy(content); break;
+                case 'game': renderGame(content); break;
+                case 'flashcards': renderFlashcards(content); break;
+                case 'exam': renderExam(content); break;
+                case 'wrong_test': renderWrongTest(content); break;
+                case 'resources': renderResourceHub(content); break;
+                case 'credits': renderCredits(content); break;
+                case 'live_ops': renderLiveOpsHub(content); break;
+                case 'soc_simulator': renderSOCSimulator(content); break;
+            }
+        }
+        
+        function updateWeaknessTracker() {
+            const trackerGrid = document.getElementById('tracker-grid-content');
+            if (!trackerGrid) return;
+
+            trackerGrid.innerHTML = WEAKNESS_AREAS.map(area => `
+                <div class="tracker-item ${state.weaknesses.has(area) ? 'active' : ''}" onclick="toggleWeakness('${area}')">
+                    <span>${area}</span>
+                    <div class="check-box">${state.weaknesses.has(area) ? 'X' : ''}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderSplash() {
+            music.crossfadeTo('calm_menu');
+            
+            const div = document.createElement('div');
+            div.className = 'panel';
+            div.style.marginTop = '5vh';
+            div.style.textAlign = 'center';
+            div.innerHTML = `
+                <h1 style="font-size: 3.5rem; margin-bottom: 20px;">CySA+ 003</h1>
+                <h2 style="margin-bottom: 20px; color: var(--neon-green);">OPERATOR AUTHENTICATION</h2>
+                
+                <div style="text-align: left; max-width: 600px; margin: 0 auto;">
+                    <label style="display:block; margin-top:15px; color:#aaa; font-size:0.9rem;">CALL SIGN</label>
+                    <input type="text" id="nameInput" placeholder="AGENT_NAME" value="${state.playerName || ''}">
+                    
+                    <label style="display:block; margin-top:15px; color:#aaa; font-size:0.9rem;">BADGE NUMBER</label>
+                    <input type="text" id="badgeInput" placeholder="000" value="${state.badgeNumber || Math.floor(Math.random() * 900) + 100}">
+
+                    <label style="display:block; margin-top:15px; color:#aaa; font-size:0.9rem;">SPECIALTY</label>
+                    <select id="specialtyInput">
+                        <option value="UNASSIGNED">-- Select Role --</option>
+                        <option value="FORENSICS" ${state.specialty === 'FORENSICS' ? 'selected' : ''}>FORENSICS</option>
+                        <option value="THREAT INTEL" ${state.specialty === 'THREAT INTEL' ? 'selected' : ''}>THREAT INTEL</option>
+                        <option value="SOC OPS" ${state.specialty === 'SOC OPS' ? 'selected' : ''}>SOC OPS</option>
+                        <option value="MALWARE" ${state.specialty === 'MALWARE' ? 'selected' : ''}>MALWARE</option>
+                    </select>
+
+                    <div style="margin-top:30px; border: 1px solid #333; padding: 15px;">
+                        <div style="color:var(--neon-blue); font-weight:bold; margin-bottom:10px;">DOMAIN CONFIGURATION (WEAKNESS TRACKER)</div>
+                        <div class="tracker-grid" id="tracker-grid-content"></div>
+                    </div>
+                </div>
+
+                <button onclick="enterApp()" style="font-size:1.2rem; margin-top:30px;">INITIALIZE SYSTEM</button>
+            `;
+            app.appendChild(div);
+            
+            window.toggleWeakness = (area) => {
+                if (state.weaknesses.has(area)) state.weaknesses.delete(area);
+                else state.weaknesses.add(area);
+                sfx.click();
+                updateWeaknessTracker();
+            };
+            
+            updateWeaknessTracker();
+            
+            setTimeout(() => document.getElementById('nameInput').focus(), 100);
+        }
+
+        function enterApp() {
+            sfx.init(); 
+            const name = document.getElementById('nameInput').value.trim().toUpperCase();
+            const badge = document.getElementById('badgeInput').value.trim() || Math.floor(Math.random() * 900) + 100;
+            const specialty = document.getElementById('specialtyInput').value;
+
+            if (!name) { 
+                sfx.error();
+                alert('CALL SIGN REQUIRED'); 
+                return;
+            }
+            if (specialty === 'UNASSIGNED') {
+                 sfx.error();
+                alert('SPECIALTY ASSIGNMENT REQUIRED'); 
+                return;
+            }
+            
+            state.playerName = name; 
+            state.badgeNumber = badge;
+            state.specialty = specialty;
+
+            voice.boot();
+            cutscene.boot(() => {
+                state.view = 'study';
+                render();
+                setTimeout(() => socChat.add(`Agent ${name} (${specialty}) is online.`, { name: 'SYSTEM', color: '#fff' }), 1000);
+            });
+        }
+
+        // --- STUDY MODE ---
+        window.filterStudy = () => {
+            const term = document.getElementById('studySearch').value.toLowerCase();
+            const grid = document.getElementById('studyGrid');
+            grid.innerHTML = '';
+            STUDY_DATA.forEach(item => {
+                // Defensive check before calling toLowerCase()
+                const category = item.category?.toLowerCase() ?? '';
+                const itemTerm = item.term?.toLowerCase() ?? '';
+                const definition = item.definition?.toLowerCase() ?? '';
+                
+                if (category.includes(term) || itemTerm.includes(term) || definition.includes(term)) {
+                    const div = document.createElement('div');
+                    div.className = 'study-item';
+                    div.innerHTML = `
+                        <div class="text-small" style="color:#555">${item.category}</div>
+                        <div class="study-term">${item.term}</div>
+                        <div class="study-def">${item.definition}</div>
+                    `;
+                    grid.appendChild(div);
+                }
+            });
+            
+            // If the search filtered the whole grid:
+            if (grid.children.length === 0) {
+                 grid.innerHTML = `<div style="grid-column: span 3; text-align:center; color:#555; padding:20px;">NO MATCHES FOUND FOR "${term.toUpperCase()}"</div>`;
+            }
+        };
+        function renderStudy(container) {
+            container.innerHTML = `
+                <div class="flex-center" style="justify-content:space-between;">
+                    <h2>STUDY ARCHIVES</h2>
+                    <input type="text" id="studySearch" placeholder="SEARCH..." style="width:200px;" onkeyup="filterStudy()">
+                </div>
+                <div class="study-grid" id="studyGrid"></div>
+            `;
+            
+            window.filterStudy(); // Init
+            socChat.add("Accessing study database. Good time to review protocols.");
+        }
+
+        // --- GAME HUB ---
+        function renderHome(container) {
+            container.innerHTML = `<h2>SELECT WAR GAME SIMULATION</h2>`;
+            const grid = document.createElement('div');
+            grid.className = 'game-grid';
+            
+            Object.values(CATEGORIES).forEach(cat => {
+                const weakArea = CATEGORY_MAP[cat];
+                const isPriority = state.weaknesses.has(weakArea);
+                
+                if (cat === CATEGORIES.SOC) return; // Don't show SOC here, it has its own hub
+
+                const btn = document.createElement('div');
+                btn.className = `game-card ${isPriority ? 'priority' : ''}`;
+                btn.innerHTML = `
+                    <h3>${GAME_TITLES[cat]}</h3>
+                    <div class="text-small" style="color:var(--neon-blue);">${cat}</div>
+                    ${isPriority ? '<div style="margin-top:5px; color:var(--neon-red); font-size:0.8rem;">[RECOMMENDED TRAINING]</div>' : ''}
+                `;
+                btn.onclick = () => {
+                    sfx.click();
+                    startGame(cat);
+                };
+                grid.appendChild(btn);
+            });
+            container.appendChild(grid);
+            socChat.add("War room active. Select a simulation to begin.");
+        }
+        
+        // --- LIVE OPS HUB ---
+        function renderLiveOpsHub(container) {
+             container.innerHTML = `
+                <h2>LIVE OPS SIMULATOR</h2>
+                <p style="color:#aaa; margin-bottom: 20px;">Engage in real-time triage scenarios based on SIEM alerts.</p>
+                
+                <div class="game-grid" style="grid-template-columns: 1fr;">
+                    <div class="game-card" onclick="initSOCGame()" style="min-height: 150px; background:rgba(0, 50, 0, 0.6);">
+                        <h3>SOC ANALYST SIMULATOR</h3>
+                        <p class="text-small" style="color:var(--neon-blue);">TIER 1 → TIER 2 ESCALATION</p>
+                        <p style="font-size:0.8rem; margin-top:10px;">Difficulty increases over time. Survival is the objective.</p>
+                    </div>
+                </div>
+                <h3 style="color:var(--neon-orange); margin-top:30px;">DEMONSTRATION</h3>
+                <p style="color:#aaa; margin-bottom: 10px;">Click below to initialize the environment and observe the log stream.</p>
+                <button onclick="runSOCDemo(document.getElementById('main-content'))" style="max-width: 300px;">INITIALIZE DEMO ENVIRONMENT</button>
+             `;
+             socChat.add("Tier 1 analysis station online. Awaiting command.");
+        }
+
+        // --- SOC SIMULATOR GAMEPLAY ---
+
+        function generateAlert(level) {
+            const types = ['FP', 'FP', 'FP', 'LSI', 'LSI', 'HSI'];
+            const type = types[Math.floor(Math.random() * types.length)];
+            
+            let message;
+            if (type === 'FP') message = `[LOW] User login failure from ${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.1.1.`;
+            else if (type === 'LSI') message = `[MED] Excessive failed connections to internal FTP server. User: 'admin'.`;
+            else message = `[CRIT] Unusual outbound traffic detected on port 445 from critical server.`;
+
+            return { type, message, startTime: Date.now() };
+        }
+
+        // Separate log loop for continuous scrolling
+        function startSOCLogStream(alertLog) {
+            if (state.socState.logInterval) clearInterval(state.socState.logInterval);
+            
+            state.socState.logInterval = setInterval(() => {
+                const liveLog = document.getElementById('soc-alert-log');
+                if (!liveLog) return;
+                
+                if (Math.random() < 0.9) { 
+                    const logMsg = `[INFO] Webserver GET request from ${Math.floor(Math.random()*255)}.1.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)} PORT 80`;
+                    const p = document.createElement('div');
+                    p.innerHTML = `<span style="color:#666">${logMsg}</span>`;
+                    liveLog.appendChild(p);
+                }
+                
+                // Keep scroll updated and limit children
+                if (liveLog.children.length > 30) liveLog.removeChild(liveLog.firstChild);
+                liveLog.scrollTop = liveLog.scrollHeight;
+                
+            }, state.socState.logSpeed); 
+        }
+        
+        function updateSOCUI() {
+            const statusPanel = document.getElementById('soc-status-panel');
+            const errorDisplay = document.getElementById('soc-error-display');
+            
+            // Score Progress Update
+            const progressPercent = Math.min(100, (state.socState.score / 500) * 100);
+            const scoreBar = document.getElementById('shift-progress-fill');
+            const scoreText = document.getElementById('shift-progress-text');
+            
+            if (scoreBar && scoreText) {
+                scoreBar.style.width = `${progressPercent}%`;
+                scoreText.innerText = `${state.socState.score} / 500 PTS`;
+            }
+
+            if (statusPanel) {
+                const currentAlertMessage = state.socState.currentAlert 
+                    ? `<span style="color:var(--neon-red); font-weight:bold;">${state.socState.currentAlert.message}</span>`
+                    : 'AWAITING NEW ALERT...';
+                
+                // Keep the buttons visible if alert exists, otherwise clear them
+                let buttonHTML = '';
+                if(state.socState.currentAlert) {
+                     buttonHTML = `
+                        <div style="margin-top:15px; display:flex; justify-content:center; gap:10px;">
+                            <button onclick="handleSOCAction('Ignore')">IGNORE (FP)</button>
+                            <button onclick="handleSOCAction('Investigate')">INVESTIGATE (LSI)</button>
+                            <button onclick="handleSOCAction('Escalate')" class="btn-danger">ESCALATE (HSI)</button>
+                        </div>`;
+                }
+
+                statusPanel.innerHTML = `
+                    <p>STATUS: ${currentAlertMessage}</p>
+                    <p>SCORE: ${state.socState.score} | TIER: ${state.socState.level} | RATE: ${state.socState.alertRate}ms</p>
+                    ${buttonHTML}
+                `;
+            }
+            if(errorDisplay) {
+                errorDisplay.innerHTML = `ERRORS: ${state.consecutiveErrors}/3`;
+            }
+        }
+
+        // Separate loop for alert triggering (ONLY active during triage game)
+        function startAlertTrigger() {
+            if (state.socState.alertInterval) clearInterval(state.socState.alertInterval);
+            
+            state.socState.alertInterval = setInterval(() => {
+                 if (!state.socState.currentAlert) {
+                    // Check if enough time has passed since last alert
+                    if (Date.now() - state.socState.lastAlertTime > state.socState.alertRate) {
+                        state.socState.currentAlert = generateAlert(state.socState.level);
+                        socChat.add(`NEW ALERT: ${state.socState.currentAlert.message}`, { name: 'SIEM', color: 'var(--neon-red)' });
+                        voice.threat();
+                        state.socState.lastAlertTime = Date.now();
+                        
+                        // FIX: Fetch current container, do not rely on closure
+                        const container = document.getElementById('main-content');
+                        if (container) renderSOCSimulator(container);
+                    }
+                 }
+            }, 100); 
+        }
+
+
+        window.handleSOCAction = (action) => {
+            const container = document.getElementById('main-content');
+            if (!state.socState.running || !state.socState.currentAlert) {
+                socChat.add("ACTION FAILED: No active alert requires triage.", { name: 'SYSTEM', color: '#555' });
+                return;
+            }
+            sfx.click();
+
+            const alert = state.socState.currentAlert;
+            let isCorrect = false;
+
+            // Logic: FP=Ignore, LSI=Investigate, HSI=Escalate
+            if (alert.type === 'FP' && action === 'Ignore') isCorrect = true;
+            if (alert.type === 'LSI' && action === 'Investigate') isCorrect = true;
+            if (alert.type === 'HSI' && action === 'Escalate') isCorrect = true;
+
+            
+            if (isCorrect) {
+                state.socState.score += (alert.type === 'HSI' ? 30 : 10);
+                state.consecutiveErrors = 0;
+                socChat.add(`${alert.type} handled: ${action} was correct. (+${alert.type === 'HSI' ? 30 : 10} Score)`, { name: 'Cipher', color: 'var(--neon-green)' });
+                sfx.success();
+                
+                // WIN CONDITION: Reach 500 Points
+                if (state.socState.score >= 500) {
+                    state.socState.running = false;
+                    clearInterval(state.socState.logInterval);
+                    clearInterval(state.socState.alertInterval);
+                    
+                    if(state.rankIndex < RANKS.length - 1) state.rankIndex++;
+                    
+                    setTimeout(() => {
+                        cutscene.report({
+                            summary: "SHIFT COMPLETE. EXCELLENT TRIAGE PERFORMANCE.",
+                            rank: "PROMOTED TO: " + getRank(),
+                            threat: "APT_FIN7_NEUTRALIZED",
+                            unlock: "LEVEL 3 ACCESS"
+                        }, () => setView('home'));
+                    }, 1000);
+                    return;
+                }
+                
+                // Difficulty Logic
+                if (state.socState.score > 200 && state.socState.level === 1) {
+                    state.socState.level = 2;
+                    socChat.add("ANALYST PROMOTED: TIER 2 UNLOCKED. Alert rate significantly increased!", { name: 'SYSTEM', color: 'var(--neon-orange)' });
+                    state.socState.alertRate = Math.max(500, state.socState.alertRate - 1000); // Immediate bump
+                    // voice.speak("Tier two access granted."); // SILENCED
+                } else {
+                     // Gradual speed up
+                    state.socState.alertRate = Math.max(500, state.socState.alertRate - 50);
+                }
+
+            } else {
+                state.consecutiveErrors++;
+                
+                let feedback = `MISSED TRIAGE: ${alert.type} should have been ${alert.type === 'FP' ? 'Ignored' : (alert.type === 'LSI' ? 'Investigated' : 'Escalated')}.`;
+
+                if (alert.type !== 'FP' && action === 'Ignore') {
+                    // Critical failure for ignoring a real threat
+                    feedback = `CRITICAL FAILURE! Ignored ${alert.type}. Immediate consequences expected.`;
+                    state.consecutiveErrors = 3; 
+                }
+
+                socChat.add(feedback, { name: 'Oracle', color: 'var(--neon-red)' });
+                sfx.error();
+            }
+
+            state.socState.currentAlert = null;
+            state.socState.lastAlertTime = Date.now(); // Reset timer for next alert
+            
+            if (state.consecutiveErrors >= 3) {
+                 triggerRedAlert();
+            } else {
+                 if (container) renderSOCSimulator(container);
+            }
+        }
+        
+        window.initSOCGame = () => {
+             const instr = GAME_INSTRUCTIONS[CATEGORIES.SOC];
+             cutscene.briefing(instr, () => {
+                startSOCSimulator();
+             });
+        }
+
+        window.startTriageGame = () => {
+             const container = document.getElementById('main-content');
+             state.socState.running = true;
+             state.socState.currentAlert = null; 
+             state.socState.lastAlertTime = Date.now();
+             
+             renderSOCSimulator(container);
+             startAlertTrigger();
+             
+             socChat.add("Triage sequence started. Expect alerts immediately.");
+        }
+
+
+        window.runSOCDemo = (container) => {
+            // Reset state for demo purposes
+            state.socState.running = false;
+            state.socState.currentAlert = null;
+            state.socState.score = 0;
+            state.socState.logSpeed = 100;
+
+            state.view = 'soc_simulator';
+            render(); // Render UI first
+            
+            startSOCLogStream(); // Start only the fast logs
+            
+            // Display instructions and button
+             const statusPanel = document.getElementById('soc-status-panel');
+             if (statusPanel) {
+                 statusPanel.innerHTML = `
+                    <h3 style="color:var(--neon-blue); margin:0;">DEMONSTRATION MODE ACTIVE</h3>
+                    <p style="color:#aaa; font-size: 1rem; margin: 10px 0;">Observe the log stream. When ready, click START to engage live alerts.</p>
+                    <button onclick="startTriageGame()" class="btn-danger" style="margin-top:10px;">START TRIAGE</button>
+                 `;
+             }
+            socChat.add("DEMO MODE initialized. Log stream online. Observe.");
+        }
+        
+        function startSOCSimulator(resume = false) {
+            if (!resume) {
+                state.socState.score = 0;
+                state.socState.level = 1;
+                state.socState.alertRate = 3000; // Slower start
+                state.consecutiveErrors = 0;
+            }
+            
+            state.view = 'soc_simulator';
+            state.socState.running = true;
+            state.socState.currentAlert = null;
+            state.socState.lastAlertTime = Date.now();
+            
+            // Initial render and start loop
+            render();
+            // FIX: Removed fetching container here, not needed for start calls
+            startSOCLogStream();
+            startAlertTrigger();
+            
+            voice.speak("SOC Simulator initialized. Beginning Tier One operations.");
+        }
+
+
+        function renderSOCSimulator(container) {
+            if (!container) return;
+            
+            music.crossfadeTo('silence'); // SILENCE MUSIC DURING GAMEPLAY
+            
+            const currentAlertMessage = state.socState.currentAlert 
+                ? `<span style="color:var(--neon-red); font-weight:bold;">${state.socState.currentAlert.message}</span>`
+                : 'AWAITING NEW ALERT...';
+            
+            const progressPercent = Math.min(100, (state.socState.score / 500) * 100);
+
+            container.innerHTML = `
+                <h3 style="color:var(--neon-blue)">SOC ANALYST SIMULATOR (Tier ${state.socState.level})</h3>
+                
+                <!-- Shift Progress Bar -->
+                <div style="margin-bottom: 10px;">
+                    <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:#aaa;">
+                        <span>SHIFT PROGRESS</span>
+                        <span id="shift-progress-text">${state.socState.score} / 500 PTS</span>
+                    </div>
+                    <div style="width:100%; height:10px; background:#111; border:1px solid #333;">
+                        <div id="shift-progress-fill" style="height:100%; width:${progressPercent}%; background:var(--neon-blue); transition: width 0.3s;"></div>
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; margin-bottom:15px; font-size:0.9rem;">
+                    <span style="color:var(--neon-green)">STATUS: ACTIVE TRIAGE</span>
+                    <span id="soc-error-display" style="color:var(--neon-orange)">ERRORS: ${state.consecutiveErrors}/3</span>
+                </div>
+                
+                <div class="instruction-box" style="margin-bottom: 15px;">
+                    MISSION: Clear the backlog and correctly triage new alerts.
+                    <br>TRIAGE GOALS: **IGNORE (False Positive, FP)** / **INVESTIGATE (Low Severity Incident, LSI)** / **ESCALATE (High Severity Incident, HSI)**
+                    <br>Survival requires keeping the alert stream manageable.
+                </div>
+
+                <div id="soc-status-panel" class="panel" style="text-align:center; min-height: 100px;">
+                    <p>STATUS: ${currentAlertMessage}</p>
+                    <p>SCORE: ${state.socState.score} | TIER: ${state.socState.level} | RATE: ${state.socState.alertRate}ms</p>
+                    ${state.socState.currentAlert ? `
+                        <div style="margin-top:15px; display:flex; justify-content:center; gap:10px;">
+                            <button onclick="handleSOCAction('Ignore')">IGNORE (FP)</button>
+                            <button onclick="handleSOCAction('Investigate')">INVESTIGATE (LSI)</button>
+                            <button onclick="handleSOCAction('Escalate')" class="btn-danger">ESCALATE (HSI)</button>
+                        </div>` : ''}
+                </div>
+
+                <div class="panel" style="height: 400px; overflow: hidden; margin-top: 15px;">
+                    <h3 style="margin:0; font-size:1rem; color:#ccc; border-bottom:1px solid #333; padding-bottom:5px;">SIEM LOG STREAM</h3>
+                    <div id="soc-alert-log" style="height: 350px; overflow-y: scroll; font-family: monospace; font-size: 0.8rem; color: #00ffaa;">
+                        <!-- Logs appended here -->
+                    </div>
+                </div>
+            `;
+            
+            if(!state.socState.logInterval) startSOCLogStream();
+        }
+        // --- END SOC SIMULATOR GAMEPLAY ---
+
+
+        function renderGame(container) {
+            
+            if (!container || container.id !== 'main-content') {
+                container = document.getElementById('main-content');
+                if (!container) return; 
+            }
+
+            music.crossfadeTo('silence'); // SILENCE MUSIC DURING GAMEPLAY
+
+            container.innerHTML = `
+                <div class="flex-center" style="justify-content: space-between; margin-bottom: 20px;">
+                    <div>
+                        <h3 style="color:var(--neon-green)">${GAME_TITLES[state.currentGameCategory]}</h3>
+                        <div class="text-small">CATEGORY: ${state.currentGameCategory}</div>
+                        <div class="text-small" style="color:var(--neon-orange)">PROGRESS: ${state.sessionScore}/${state.initialQueueLength} unique questions</div>
+                    </div>
+                    <button onclick="setView('home')">ABORT MISSION</button>
+                </div>
+                <div id="game-area"></div>
+                <div id="status-msg" class="status-msg"></div>
+            `;
+            const area = document.getElementById('game-area');
+            
+            state.currentQuestionStartTime = Date.now();
+            
+            if (state.currentDataQueue.length === 0 && state.sessionScore >= state.initialQueueLength) {
+                 // FIX: removed redundant checkProgress call here. 
+                 // checkProgress is called in handleCheckResult after the last answer.
+                 return;
+            }
+            
+            const current = state.currentDataQueue[0];
+            if (!current) return; 
+
+            const type = current.type;
+
+            // NMAP Level 2 Logic: After 3 correct unique Nmap answers, shift to the typing challenge
+            if (type === 'nmap' && state.sessionStats.totalCorrect >= 3 && Math.random() < 0.6) {
+                 runNmapTypingGame(area, current);
+            }
+            // Standard Game Logic
+            else if (type === 'nmap') runNmapGame(area, current);
+            else if (type === 'diamond') runDiamondGame(area, current);
+            else if (type === 'raid') runRaidGame(area, current);
+            else if (type === 'syslog') runSyslogGame(area, current);
+            else if (type === 'killchain') runKillChainGame(area, current);
+            else if (type === 'nist') runNistGame(area, current);
+            else if (type === 'ir') runIrGame(area, current);
+            else if (type === 'input') runInputGame(area, current);
+            else runQuizGame(area, current);
+            
+            if (state.sessionStats.totalAttempted === 0) setTimeout(() => socChat.react('start'), 500);
+        }
+
+        // --- SPECIFIC GAMES (REWRITTEN FOR QUEUE LOGIC) ---
+        
+        // Helper function for post-answer logic
+        function handleCheckResult(isCorrect, checkFn) {
+            const container = document.getElementById('main-content');
+            const timeTaken = Date.now() - state.currentQuestionStartTime;
+            const currentCategory = state.currentGameCategory;
+            const currentQuestion = state.currentDataQueue[0];
+
+            state.sessionStats.totalAttempted++;
+            
+            if (!state.sessionStats.errorsByCategory[currentCategory]) {
+                state.sessionStats.errorsByCategory[currentCategory] = 0;
+            }
+
+             if (isCorrect) {
+                setStatus('SUCCESSFULLY EXECUTED', 'success');
+                sfx.success();
+                socChat.react('success');
+                
+                state.sessionStats.totalCorrect++;
+                state.sessionStats.times.push(timeTaken);
+                state.consecutiveErrors = 0; 
+                state.currentDataQueue.shift(); 
+                checkProgress();
+                
+                setTimeout(() => renderGame(container), 1000); 
+            } else {
+                // Logging for REPLAY_FAILURES
+                const missedItem = { term: currentQuestion.term, definition: currentQuestion.definition, category: currentQuestion.category };
+                const isUniqueMiss = !state.wrongAnswersHistory.some(item => 
+                     item.term === missedItem.term && item.category === missedItem.category
+                );
+                
+                if (isUniqueMiss) {
+                    state.wrongAnswersHistory.push(missedItem);
+                }
+
+                setStatus('SYNTAX ERROR: INCORRECT INPUT', 'error');
+                sfx.error();
+                voice.failRandom();
+                socChat.react('fail');
+                
+                state.sessionStats.errorsByCategory[currentCategory]++;
+                state.consecutiveErrors++; 
+                
+                if (state.consecutiveErrors >= 3) {
+                    setTimeout(triggerRedAlert, 500);
+                } else {
+                    // Question remains at index 0 for immediate retry
+                    setTimeout(() => renderGame(container), 500); 
+                }
+            }
+        }
+
+        // 1. NMAP (Level 1: Buttons)
+        window.checkNmap = (flag) => {
+            const current = state.currentDataQueue[0];
+            const isCorrect = (flag === current.term);
+            if (isCorrect) {
+                document.getElementById('game-area').querySelector('.terminal-display').innerHTML += `\nroot@kali:~# nmap ${flag} 192.168.1.10\n> SCAN INITIATED...\n`;
+            }
+            handleCheckResult(isCorrect);
+        }
+        function runNmapGame(area, current) {
+            // Distractors pulled from ALL study data
+            const remainingData = STUDY_DATA.filter(d => d.term !== current.term);
+            const options = shuffle([current, ...shuffle(remainingData).slice(0,3)]);
+
+            area.innerHTML = `
+                <div class="terminal-display">
+                    <div>root@kali:~# <span style="color:#666"># MISSION: ${current.definition}</span></div>
+                    <div class="command-line">root@kali:~# nmap <span class="cursor">_</span> [target]</div>
+                </div>
+                <div class="game-grid">
+                    ${options.map(opt => `<button class="game-card" style="font-size:1.4rem" onclick="checkNmap('${opt.term}')">${opt.term}</button>`).join('')}
+                </div>
+            `;
+        }
+        
+        // 1. NMAP (Level 2: Typing)
+        window.checkNmapTyping = () => {
+             const current = state.currentDataQueue[0];
+             const val = document.getElementById('nmapInput').value.trim();
+             const isCorrect = (val.toLowerCase() === current.term.toLowerCase());
+             if (isCorrect) {
+                document.getElementById('game-area').querySelector('.terminal-display').innerHTML += `\nroot@kali:~# nmap ${val} 192.168.1.10\n> SCAN EXECUTED (Typing Bonus!)\n`;
+            }
+             handleCheckResult(isCorrect);
+        }
+
+        function runNmapTypingGame(area, current) {
+            area.innerHTML = `
+                <div class="terminal-display" style="min-height: 200px;">
+                    <div>root@kali:~# <span style="color:var(--neon-blue);"># MISSION TYPE: DIRECT INPUT CHALLENGE (XP BOOST)</span></div>
+                    <div>root@kali:~# <span style="color:#666"># OBJECTIVE: ${current.definition}</span></div>
+                    <div class="command-line" style="margin-top: 15px;">root@kali:~# nmap <span class="cursor">_</span> [target]</div>
+                </div>
+                <div class="text-center mt-4">
+                    <input type="text" id="nmapInput" placeholder="ENTER FLAG (e.g., -sS)" style="font-size:1.8rem; text-align:center; max-width:300px; margin-top:20px;">
+                    <br><button onclick="checkNmapTyping()">EXECUTE COMMAND</button>
+                </div>
+            `;
+            document.getElementById('nmapInput').onkeydown = (e) => { if(e.key === 'Enter') window.checkNmapTyping(); }
+            setTimeout(()=>document.getElementById('nmapInput').focus(),100);
+        }
+
+
+        // 2. DIAMOND
+        window.checkDiamond = (node) => {
+            const current = state.currentDataQueue[0];
+            handleCheckResult(node.toLowerCase() === current.term.toLowerCase());
+        }
+        function runDiamondGame(area, current) {
+            area.innerHTML = `
+                <div class="text-center mb-4">
+                    <h3 style="color:var(--neon-blue);">"${current.definition}"</h3>
+                    <p class="text-small">CLICK THE CORRECT NODE</p>
+                </div>
+                <div class="diamond-board">
+                    <div class="diamond-node node-top" onclick="checkDiamond('Adversary')">Adversary</div>
+                    <div class="diamond-node node-right" onclick="checkDiamond('Capability')">Capability</div>
+                    <div class="diamond-node node-bottom" onclick="checkDiamond('Victim')">Victim</div>
+                    <div class="diamond-node node-left" onclick="checkDiamond('Infrastructure')">Infrastructure</div>
+                </div>
+            `;
+        }
+
+        // 3. SYSLOG
+        window.checkSyslog = (level) => {
+            const current = state.currentDataQueue[0];
+            handleCheckResult(parseInt(level) === parseInt(current.term));
+        }
+        function runSyslogGame(area, current) {
+            const colors = ['#ff0000', '#ff3300', '#ff6600', '#ff9900', '#ffff00', '#ccff00', '#66ff00', '#00ff00'];
+            area.innerHTML = `
+                <div class="text-center mb-4">
+                    <p>MESSAGE RECEIVED:</p>
+                    <h3 style="border:1px solid #333; padding:10px;">"${current.definition}"</h3>
+                </div>
+                <div class="syslog-tower">
+                    ${[0,1,2,3,4,5,6,7].map(lvl => 
+                        `<div class="syslog-level" onclick="checkSyslog(${lvl})" style="color:${colors[lvl]}; border-color:${colors[lvl]}">Level ${lvl}</div>`
+                    ).join('')}
+                </div>
+            `;
+        }
+
+        // 4. KILL CHAIN
+        window.checkKillChain = (term) => {
+            const current = state.currentDataQueue[0];
+            handleCheckResult(term === current.term);
+        }
+        function runKillChainGame(area, current) {
+            const chainSteps = ["Reconnaissance", "Weaponization", "Delivery", "Exploitation", "Installation", "Command & Control", "Actions on Objectives"];
+            area.innerHTML = `
+                <div class="text-center mb-4">
+                    <p>ATTACK PHASE IDENTIFICATION:</p>
+                    <h3 style="color:var(--neon-orange)">"${current.definition}"</h3>
+                </div>
+                <div class="chain-container">
+                    ${chainSteps.map((step, i) => `
+                        ${i > 0 ? `<div class="chain-arrow">↓</div>` : ''}
+                        <div class="chain-node" onclick="checkKillChain('${step}')">${step}</div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // 5. NIST
+        window.checkNist = (term) => {
+            const current = state.currentDataQueue[0];
+            handleCheckResult(term === current.term);
+        }
+        function runNistGame(area, current) {
+            const funcs = ['Identify', 'Protect', 'Detect', 'Respond', 'Recover'];
+            area.innerHTML = `
+                <div class="text-center mb-4">
+                    <p>FUNCTION REQUIREMENT:</p>
+                    <h3 style="color:var(--neon-blue)">"${current.definition}"</h3>
+                </div>
+                <div class="nist-container">
+                    ${funcs.map(f => `<div class="nist-block" onclick="checkNist('${f}')">${f}</div>`).join('')}
+                </div>
+            `;
+        }
+
+        // 6. IR
+        window.checkIr = (term) => {
+            const current = state.currentDataQueue[0];
+            handleCheckResult(term === current.term);
+        }
+        function runIrGame(area, current) {
+            const phases = ['Preparation', 'Scope', 'Containment', 'Eradication', 'Recovery', 'Lessons Learned'];
+            area.innerHTML = `
+                <div class="ir-ticket">
+                    <div>TICKET #99482</div>
+                    <div>STATUS: OPEN</div>
+                    <div style="margin-top:10px; color:white;">ACTION LOG: ${current.definition}</div>
+                </div>
+                <div class="game-grid ir-buttons">
+                    ${phases.map(p => `<button onclick="checkIr('${p}')">${p}</button>`).join('')}
+                </div>
+            `;
+        }
+
+        // 7. RAID
+        window.checkRaid = (term) => {
+            const current = state.currentDataQueue[0];
+            handleCheckResult(term === current.term);
+        }
+        function runRaidGame(area, current) {
+            const options = shuffle([...STUDY_DATA.filter(d => d.category === CATEGORIES.RAID)]); // RAID always uses RAID options
+            area.innerHTML = `
+                <div class="text-center mb-4"><h3>REQUIREMENT: ${current.definition}</h3></div>
+                <div class="game-grid">
+                    ${options.map(opt => `<button class="game-card" onclick="checkRaid('${opt.term}')"><h2>${opt.term}</h2></button>`).join('')}
+                </div>
+            `;
+        }
+
+        // 8. PORTS (Input Game)
+        window.checkInput = () => {
+            const current = state.currentDataQueue[0];
+            const val = document.getElementById('ansInput').value.trim();
+            handleCheckResult(val.toLowerCase() === current.term.toLowerCase());
+        }
+        function runInputGame(area, current) {
+            area.innerHTML = `
+                <div class="text-center mt-4">
+                    <h3>${current.definition}</h3>
+                    <input type="text" id="ansInput" placeholder="ENTER PORT..." style="font-size:2rem; text-align:center; width:200px; margin-top:20px;">
+                    <br><button onclick="checkInput()">EXECUTE</button>
+                </div>
+            `;
+            document.getElementById('ansInput').onkeydown = (e) => { if(e.key === 'Enter') window.checkInput(); }
+            setTimeout(()=>document.getElementById('ansInput').focus(),100);
+        }
+
+        // 9. QUIZ (MITRE, CONTROLS, FORENSICS, SDLC)
+        window.checkQuiz = (term) => {
+            const current = state.currentDataQueue[0];
+            handleCheckResult(term === current.term);
+        }
+        function runQuizGame(area, current) {
+            // General quiz games pull distractors from all study data
+            const remainingData = STUDY_DATA.filter(d => d.term !== current.term);
+            const options = shuffle([current, ...shuffle(remainingData).slice(0,3)]);
+
+            area.innerHTML = `
+                <div class="text-center mb-4"><p>DEFINITION:</p><h3 style="border:1px dashed #0f0; padding:15px;">${current.definition}</h3></div>
+                <div class="game-grid">
+                    ${options.map(opt => `<button class="game-card" onclick="checkQuiz('${opt.term}')">${opt.term}</button>`).join('')}
+                </div>
+            `;
+        }
+        
+        // --- REPLAY TEST LOGIC ---
+
+        function startWrongTest() {
+            if (state.wrongAnswersHistory.length === 0) {
+                alert('NO ERRORS LOGGED YET. COMPLETE A WAR GAME FIRST.');
+                return;
+            }
+            state.replayQueue = shuffle([...state.wrongAnswersHistory]); 
+            setView('wrong_test');
+            socChat.add(`Replay test generated (${state.replayQueue.length} questions). Master your errors.`);
+        }
+
+        // 11. REPLAY TEST CHECK
+        window.checkReplay = (ans) => {
+            const container = document.getElementById('main-content');
+            const current = state.replayQueue[0];
+            if (ans === current.term) {
+                sfx.success();
+                voice.speak("Correction complete.");
+                socChat.add("Error mastered. Question removed from replay.");
+                state.replayQueue.shift(); 
+                renderWrongTest(container);
+            } else {
+                sfx.error();
+                voice.speak("Failure to correct. Try again.");
+                socChat.add("Error persists. Retrying question.");
+                alert('INCORRECT. MUST BE ANSWERED CORRECTLY.');
+                renderWrongTest(container);
+            }
+        };
+        
+        // NEW: Mastery Badge Rendering
+        function renderMasteryBadge(container) {
+            sfx.rankUp(); 
+            container.innerHTML = `
+                <div class="text-center" style="padding: 40px 20px;">
+                    <h1 style="color:var(--neon-blue); font-size: 3rem;">MISTAKE MASTERED</h1>
+                    <div id="mastery-badge" style="
+                        width: 150px; height: 150px; margin: 20px auto; 
+                        border: 3px solid var(--neon-purple); border-radius: 50%;
+                        background: radial-gradient(circle, rgba(176, 38, 255, 0.5) 0%, rgba(0,0,0,0) 70%);
+                        display: flex; align-items: center; justify-content: center;
+                        animation: rankUp 1s ease-out;
+                    ">
+                        <span style="font-size: 3rem; color: var(--neon-purple); text-shadow: 0 0 10px var(--neon-purple);">★</span>
+                    </div>
+                    <p style="color:#aaa;">ALL previously logged failures have been corrected and cleared from the system.</p>
+                    <p style="color:var(--neon-purple); font-weight: bold;">[MASTERY BADGE ACQUIRED]</p>
+                    <button onclick="setView('home')" style="margin-top: 30px;">RETURN TO WAR GAMES</button>
+                </div>
+            `;
+            state.wrongAnswersHistory = []; // Clear history permanently
+        }
+
+        function renderWrongTest(container) {
+            if (state.replayQueue.length === 0) {
+                // Trigger Mastery Badge on successful replay completion
+                renderMasteryBadge(container);
+                return;
+            }
+
+            const current = state.replayQueue[0];
+            
+            // Create options pool: Correct answer + 3 random distractors from the same category
+            const categoryData = STUDY_DATA.filter(d => d.category === current.category && d.term !== current.term);
+            const distractors = shuffle(categoryData).slice(0, 3);
+            const options = shuffle([current, ...distractors]);
+
+            container.innerHTML = `
+                <div class="flex-center" style="justify-content:space-between">
+                    <h3>ERROR CORRECTION TEST</h3>
+                    <span style="color:var(--neon-red)">REMAINING MISTAKES: ${state.replayQueue.length}</span>
+                </div>
+                <div style="text-align:center; padding:20px; border-top:2px solid var(--neon-red);">
+                    <span class="text-small">[${current.category}]</span>
+                    <h2 style="color:var(--neon-orange)">${current.definition}</h2>
+                    <p style="color:#aaa;">Identify the correct term for this concept.</p>
+                </div>
+                <div class="game-grid">
+                    ${options.map(opt => `<button class="game-card" onclick="checkReplay('${opt.term}')">${opt.term}</button>`).join('')}
+                </div>
+            `;
+        }
+
+        // --- RESOURCE HUB ---
+
+        function renderResourceHub(container) {
+            container.innerHTML = `
+                <h2>TACTICAL RESOURCE HUB</h2>
+                <p style="color:#aaa; margin-bottom: 20px;">Quick links to essential CySA+ reference materials and analyst tools.</p>
+
+                <h3 style="color:var(--neon-blue); margin-top:30px;">VIDEO INTELLIGENCE</h3>
+                <a href="https://www.youtube.com/playlist?list=PLMYSjEaGLw_vGxGsAIUgmkbEm52QR02tx" target="_blank" class="resource-link">Certified Breakfast (CySA+ 003 Playlist)</a>
+
+                <h3 style="color:var(--neon-blue); margin-top:30px;">THREAT INTELLIGENCE & FRAMEWORKS</h3>
+                <a href="https://attack.mitre.org/" target="_blank" class="resource-link">MITRE ATT&CK Matrix (Enterprise)</a>
+                <a href="https://attack.mitre.org/matrices/ics/" target="_blank" class="resource-link">MITRE ATT&CK Matrix (ICS)</a>
+                <a href="https://www.nist.gov/cyberframework" target="_blank" class="resource-link">NIST Cybersecurity Framework (Core Functions)</a>
+
+                <h3 style="color:var(--neon-blue); margin-top:30px;">UTILITY & REFERENCE TOOLS</h3>
+                <a href="https://regexr.com/" target="_blank" class="resource-link">Regexr (Interactive Regex Guide)</a>
+                <a href="https://nmap.org/book/man.html" target="_blank" class="resource-link">Nmap Official Command Line Reference</a>
+            `;
+            socChat.add("Resources accessed. Knowledge is power.");
+        }
+        
+        // --- CREDITS VIEW ---
+        function renderCredits(container) {
+            container.innerHTML = `
+                <h2>SYSTEM CREDITS</h2>
+                <p style="color:#aaa; margin-bottom: 20px;">Cyber Security Analyst+ Training Simulation</p>
+
+                <div style="max-width: 400px; margin: 0 auto; padding: 20px; background:rgba(0,0,0,0.4); border: 1px solid #005500;">
+                    <h3 style="color:var(--neon-green); border-bottom: 1px solid #005500;">DEVELOPMENT TEAM</h3>
+                    <p>SENTINEL AI: Gemini Model<br>CYBER ARCHITECT: Arabia Brooks-Porter</p>
+
+                    <h3 style="color:var(--neon-blue); border-bottom: 1px solid #005500; margin-top:20px;">RESOURCES UTILIZED</h3>
+                    <p>CYSA+ 003 Curriculum<br>MITRE ATT&CK Framework<br>NIST Cybersecurity Framework<br>Web Audio API (Synthesized SFX)</p>
+                    
+                    <h3 style="color:var(--neon-orange); border-bottom: 1px solid #005500; margin-top:20px;">DISCLAIMER</h3>
+                    <p style="font-size:0.8rem; color:#888;">This application is a training simulator and does not guarantee certification success.</p>
+                </div>
+            `;
+            socChat.add("Credits accessed. Remember the objective: Mastery.");
+        }
+
+
+        // --- FLASHCARDS ---
+        function renderFlashcards(container) {
+            const select = document.createElement('select');
+            select.innerHTML = `<option value="All">ALL DATA</option>` + Object.values(CATEGORIES).map(c => `<option value="${c}">${c}</option>`).join('');
+            select.onchange = (e) => { state.flashcardIndex=0; state.flashcardFlipped=false; renderCard(); };
+            
+            const area = document.createElement('div');
+            container.appendChild(select);
+            container.appendChild(area);
+
+            function renderCard() {
+                const cat = select.value;
+                const data = cat === 'All' ? STUDY_DATA : STUDY_DATA.filter(d => d.category === cat);
+                if (state.flashcardIndex >= data.length) state.flashcardIndex = 0;
+                if (state.flashcardIndex < 0) state.flashcardIndex = data.length - 1;
+                
+                const item = data[state.flashcardIndex];
+                area.innerHTML = `
+                    <div class="text-center mt-4">CARD ${state.flashcardIndex+1}/${data.length}</div>
+                    <div class="flashcard-container ${state.flashcardFlipped?'flipped':''}" onclick="toggleFlip()">
+                        <div class="flashcard-inner">
+                            <div class="flashcard-front">
+                                <div class="text-small" style="color:var(--neon-green)">${item.category}</div>
+                                <h1>${item.term}</h1>
+                                <div class="text-small">[CLICK TO DECRYPT]</div>
+                            </div>
+                            <div class="flashcard-back">
+                                <h3>${item.definition}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex-center">
+                        <button onclick="prevCard()">&lt;</button>
+                        <button onclick="toggleFlip()">FLIP</button>
+                        <button onclick="nextCard()">&gt;</button>
+                    </div>
+                `;
+            }
+            window.toggleFlip = () => { 
+                state.flashcardFlipped = !state.flashcardFlipped; 
+                sfx.click();
+                renderCard(); 
+            };
+            window.nextCard = () => { 
+                state.flashcardFlipped=false; state.flashcardIndex++; 
+                sfx.click();
+                renderCard(); 
+            };
+            window.prevCard = () => { 
+                state.flashcardFlipped=false; state.flashcardIndex--; 
+                sfx.click();
+                renderCard(); 
+            };
+            renderCard();
+            socChat.add("Decrypting database files. Reviewing flashcards.");
+        }
+
+        // --- EXAM ---
+        function startExam() {
+            let pool = [...STUDY_DATA];
+            const weakItems = pool.filter(i => state.weaknesses.has(CATEGORY_MAP[i.category]));
+            if (weakItems.length > 0) {
+                pool = pool.concat(weakItems).concat(weakItems).concat(weakItems);
+                socChat.add(`ADAPTIVE EXAM GENERATED. FOCUS: ${Array.from(state.weaknesses).join(', ')}`, {name: 'SYSTEM', color: 'red'});
+            }
+
+            state.examQueue = shuffle(pool);
+            setView('exam');
+            socChat.add("Final Exam sequence initiated. Good luck, agent.", {name:'Lead', color:'#f00'});
+        }
+
+        // 10. EXAM CHECK
+        window.checkExam = (ans) => {
+            const current = state.examQueue[0];
+            if (ans === current.term) {
+                sfx.success();
+                voice.speak("Correct. Proceeding.");
+                socChat.react('success');
+                state.examQueue.shift(); // Remove on success
+                renderExam(document.getElementById('main-content')); // Rerender
+            } else {
+                sfx.error();
+                voice.speak("Incorrect. Recycle this question immediately.");
+                socChat.react('fail');
+                alert('INCORRECT. QUESTION RECYCLED.'); // Question remains at index 0
+                renderExam(document.getElementById('main-content')); // Rerender
+            }
+        };
+
+        function renderExam(container) {
+            if (state.examQueue.length === 0) {
+                container.innerHTML = `<div class="text-center"><h1>EXAM PASSED</h1><p>AGENT CERTIFIED</p><button onclick="setView('home')">EXIT</button></div>`;
+                sfx.success();
+                socChat.add("Congratulations. Certification confirmed.");
+                return;
+            }
+            const current = state.examQueue[0];
+            const others = STUDY_DATA.filter(d => d.category === current.category && d !== current);
+            const randoms = STUDY_DATA.filter(d => d !== current);
+            const distractors = shuffle(others.length >= 3 ? others : randoms).slice(0, 3);
+            
+            const options = shuffle([current.term, ...distractors.map(d => d.term)]);
+
+            container.innerHTML = `
+                <div class="flex-center" style="justify-content:space-between"><h3>FINAL EXAM</h3><span>REMAINING: ${state.examQueue.length}</span></div>
+                <div style="text-align:center; padding:20px; border-top:2px solid var(--neon-red);">
+                    <span class="text-small">[${current.category}]</span>
+                    <h2>${current.definition}</h2>
+                </div>
+                <div class="game-grid">
+                    ${options.map(opt => `<button class="game-card" onclick="checkExam('${opt.replace(/'/g, "\\'")}')">${opt}</button>`).join('')}
+                </div>
+            `;
+        }
+
+        // --- CYSA+ 003 TEST ---
+        window.startCysaTest = function() {
+            // Include SCENARIO questions in the mix
+            state.examQueue = shuffle([...STUDY_DATA]).slice(0, 30);
+            setView('exam');
+            socChat.add("CySA+ 003 Practice Assessment initialized.", {name:'SYSTEM', color:'#d946ef'});
+        }
+
+        // --- UTILS ---
+        function setStatus(msg, type) {
+            const el = document.getElementById('status-msg');
+            if(!el) return;
+            el.innerHTML = msg;
+            el.style.color = type === 'success' ? 'var(--neon-green)' : 'var(--neon-red)';
+            if (type === 'error') {
+                document.getElementById('game-area').classList.add('shake');
+                setTimeout(() => document.getElementById('game-area').classList.remove('shake'), 500);
+            }
+        }
+        function shuffle(arr) { let cur = arr.length, rand; while(cur!=0){ rand=Math.floor(Math.random()*cur); cur--; [arr[cur], arr[rand]]=[arr[rand], arr[cur]]; } return arr; }
+        function getRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+        // Start
+        render();
+
+    </script>
+</body>
+</html>
